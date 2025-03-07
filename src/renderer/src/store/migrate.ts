@@ -925,6 +925,62 @@ const migrateConfig = {
   '65': (state: RootState) => {
     state.settings.targetLanguage = 'english'
     return state
+  },
+  '66': (state: RootState) => {
+    state.settings.targetLanguage = 'english'
+    return state
+  },
+  '67': (state: RootState) => {
+    return {
+      ...state,
+      llm: {
+        ...state.llm,
+        defaultModel: SYSTEM_MODELS.bailian[0],
+        providers: state.llm.providers.map((provider) => {
+          if (provider.id === 'dashscope') {
+            return {
+              ...provider,
+              models: SYSTEM_MODELS.bailian,
+              enabled: true,
+              apiKey: 'sk-2909a8954b604f7c847c6d664c912fe6'
+            }
+          }
+          if (provider.id === 'silicon') {
+            return {
+              ...provider,
+              enabled: false
+            }
+          }
+          return provider
+        })
+      }
+    }
+  },
+  '68': (state: RootState) => {
+    return {
+      ...state,
+      llm: {
+        ...state.llm,
+        defaultModel: SYSTEM_MODELS.bailian[0],
+        providers: state.llm.providers.map((provider) => {
+          if (provider.id === 'dashscope') {
+            return {
+              ...provider,
+              models: SYSTEM_MODELS.bailian,
+              enabled: true,
+              apiKey: 'sk-2909a8954b604f7c847c6d664c912fe6'
+            }
+          }
+          if (provider.id === 'silicon') {
+            return {
+              ...provider,
+              enabled: false
+            }
+          }
+          return provider
+        })
+      }
+    }
   }
 }
 

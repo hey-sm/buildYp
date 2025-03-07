@@ -19,10 +19,20 @@ export interface LlmState {
 }
 
 const initialState: LlmState = {
-  defaultModel: SYSTEM_MODELS.silicon[1],
+  defaultModel: SYSTEM_MODELS.bailian[0],
   topicNamingModel: SYSTEM_MODELS.silicon[2],
   translateModel: SYSTEM_MODELS.silicon[3],
   providers: [
+    {
+      id: 'dashscope',
+      name: 'Bailian',
+      type: 'openai',
+      apiKey: 'sk-2909a8954b604f7c847c6d664c912fe6',
+      apiHost: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
+      models: SYSTEM_MODELS.bailian,
+      isSystem: true,
+      enabled: true
+    },
     {
       id: 'silicon',
       name: 'Silicon',
@@ -31,7 +41,7 @@ const initialState: LlmState = {
       apiHost: 'https://api.siliconflow.cn',
       models: SYSTEM_MODELS.silicon,
       isSystem: true,
-      enabled: true
+      enabled: false
     },
     {
       id: 'aihubmix',
@@ -174,16 +184,7 @@ const initialState: LlmState = {
       isSystem: true,
       enabled: false
     },
-    {
-      id: 'dashscope',
-      name: 'Bailian',
-      type: 'openai',
-      apiKey: '',
-      apiHost: 'https://dashscope.aliyuncs.com/compatible-mode/v1/',
-      models: SYSTEM_MODELS.bailian,
-      isSystem: true,
-      enabled: false
-    },
+
     {
       id: 'stepfun',
       name: 'StepFun',
