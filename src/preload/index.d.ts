@@ -1,9 +1,8 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { FileMetadataResponse, ListFilesResponse, UploadFileResponse } from '@google/generative-ai/server'
-import { AddLoaderReturn, ExtractChunkData } from '@llm-tools/embedjs-interfaces'
-import { FileType } from '@renderer/types'
-import { WebDavConfig } from '@renderer/types'
-import { AppInfo, KnowledgeBaseParams, KnowledgeItem, LanguageVarious } from '@renderer/types'
+import { ExtractChunkData } from '@llm-tools/embedjs-interfaces'
+import { AppInfo, FileType, KnowledgeBaseParams, KnowledgeItem, LanguageVarious, WebDavConfig } from '@renderer/types'
+import type { LoaderReturn } from '@shared/config/types'
 import type { OpenDialogOptions } from 'electron'
 import type { UpdateInfo } from 'electron-updater'
 import { Readable } from 'stream'
@@ -14,6 +13,7 @@ declare global {
     api: {
       getAppInfo: () => Promise<AppInfo>
       checkForUpdate: () => Promise<{ currentVersion: string; updateInfo: UpdateInfo | null }>
+      showUpdateDialog: () => Promise<void>
       openWebsite: (url: string) => void
       setProxy: (proxy: string | undefined) => void
       setLanguage: (theme: LanguageVarious) => void
@@ -78,8 +78,16 @@ declare global {
           base: KnowledgeBaseParams
           item: KnowledgeItem
           forceReload?: boolean
-        }) => Promise<AddLoaderReturn>
-        remove: ({ uniqueId, base }: { uniqueId: string; base: KnowledgeBaseParams }) => Promise<void>
+        }) => Promise<LoaderReturn>
+        remove: ({
+          uniqueId,
+          uniqueIds,
+          base
+        }: {
+          uniqueId: string
+          uniqueIds: string[]
+          base: KnowledgeBaseParams
+        }) => Promise<void>
         search: ({ search, base }: { search: string; base: KnowledgeBaseParams }) => Promise<ExtractChunkData[]>
       }
       window: {
@@ -109,6 +117,22 @@ declare global {
       aes: {
         encrypt: (text: string, secretKey: string, iv: string) => Promise<{ iv: string; encryptedData: string }>
         decrypt: (encryptedData: string, iv: string, secretKey: string) => Promise<string>
+      }
+      shell: {
+        openExternal: (url: string, options?: OpenExternalOptions) => Promise<void>
+      }
+      mcp: {
+        // servers
+        listServers: () => Promise<MCPServer[]>
+        addServer: (server: MCPServer) => Promise<void>
+        updateServer: (server: MCPServer) => Promise<void>
+        deleteServer: (serverName: string) => Promise<void>
+        setServerActive: (name: string, isActive: boolean) => Promise<void>
+        // tools
+        listTools: () => Promise<MCPTool>
+        callTool: ({ client, name, args }: { client: string; name: string; args: any }) => Promise<any>
+        // status
+        cleanup: () => Promise<void>
       }
     }
   }

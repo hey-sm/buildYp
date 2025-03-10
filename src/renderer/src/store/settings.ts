@@ -34,6 +34,7 @@ export interface SettingsState {
   fontSize: number
   topicPosition: 'left' | 'right'
   showTopicTime: boolean
+  showAssistantIcon: boolean
   pasteLongTextAsFile: boolean
   pasteLongTextThreshold: number
   clickAssistantToShowTopic: boolean
@@ -41,9 +42,12 @@ export interface SettingsState {
   renderInputMessageAsMarkdown: boolean
   codeShowLineNumbers: boolean
   codeCollapsible: boolean
+  codeWrappable: boolean
   mathEngine: 'MathJax' | 'KaTeX'
   messageStyle: 'plain' | 'bubble'
   codeStyle: CodeStyleVarious
+  gridColumns: number
+  gridPopoverTrigger: 'hover' | 'click'
   // webdav 配置 host, user, pass, path
   webdavHost: string
   webdavUser: string
@@ -67,9 +71,16 @@ export interface SettingsState {
   multiModelMessageStyle: MultiModelMessageStyle
   notionDatabaseID: string | null
   notionApiKey: string | null
+  notionPageNameKey: string | null
+  thoughtAutoCollapse: boolean
+  notionAutoSplit: boolean
+  notionSplitSize: number
+  yuqueToken: string | null
+  yuqueUrl: string | null
+  yuqueRepoId: string | null
 }
 
-export type MultiModelMessageStyle = 'horizontal' | 'vertical' | 'fold'
+export type MultiModelMessageStyle = 'horizontal' | 'vertical' | 'fold' | 'grid'
 
 const initialState: SettingsState = {
   showAssistants: true,
@@ -89,6 +100,7 @@ const initialState: SettingsState = {
   fontSize: 14,
   topicPosition: 'left',
   showTopicTime: false,
+  showAssistantIcon: false,
   pasteLongTextAsFile: false,
   pasteLongTextThreshold: 1500,
   clickAssistantToShowTopic: false,
@@ -96,9 +108,12 @@ const initialState: SettingsState = {
   renderInputMessageAsMarkdown: false,
   codeShowLineNumbers: false,
   codeCollapsible: false,
-  mathEngine: 'MathJax',
+  codeWrappable: false,
+  mathEngine: 'KaTeX',
   messageStyle: 'plain',
   codeStyle: 'auto',
+  gridColumns: 2,
+  gridPopoverTrigger: 'hover',
   webdavHost: '',
   webdavUser: '',
   webdavPass: '',
@@ -119,7 +134,14 @@ const initialState: SettingsState = {
   clickTrayToShowQuickAssistant: false,
   multiModelMessageStyle: 'fold',
   notionDatabaseID: '',
-  notionApiKey: ''
+  notionApiKey: '',
+  notionPageNameKey: 'Name',
+  thoughtAutoCollapse: true,
+  notionAutoSplit: false,
+  notionSplitSize: 90,
+  yuqueToken: '',
+  yuqueUrl: '',
+  yuqueRepoId: ''
 }
 
 const settingsSlice = createSlice({
@@ -177,13 +199,15 @@ const settingsSlice = createSlice({
     },
     setWindowStyle: (state, action: PayloadAction<'transparent' | 'opaque'>) => {
       state.windowStyle = action.payload
-      console.log(state.windowStyle)
     },
     setTopicPosition: (state, action: PayloadAction<'left' | 'right'>) => {
       state.topicPosition = action.payload
     },
     setShowTopicTime: (state, action: PayloadAction<boolean>) => {
       state.showTopicTime = action.payload
+    },
+    setShowAssistantIcon: (state, action: PayloadAction<boolean>) => {
+      state.showAssistantIcon = action.payload
     },
     setPasteLongTextAsFile: (state, action: PayloadAction<boolean>) => {
       state.pasteLongTextAsFile = action.payload
@@ -221,8 +245,17 @@ const settingsSlice = createSlice({
     setCodeCollapsible: (state, action: PayloadAction<boolean>) => {
       state.codeCollapsible = action.payload
     },
+    setCodeWrappable: (state, action: PayloadAction<boolean>) => {
+      state.codeWrappable = action.payload
+    },
     setMathEngine: (state, action: PayloadAction<'MathJax' | 'KaTeX'>) => {
       state.mathEngine = action.payload
+    },
+    setGridColumns: (state, action: PayloadAction<number>) => {
+      state.gridColumns = action.payload
+    },
+    setGridPopoverTrigger: (state, action: PayloadAction<'hover' | 'click'>) => {
+      state.gridPopoverTrigger = action.payload
     },
     setMessageStyle: (state, action: PayloadAction<'plain' | 'bubble'>) => {
       state.messageStyle = action.payload
@@ -265,7 +298,7 @@ const settingsSlice = createSlice({
     setEnableQuickAssistant: (state, action: PayloadAction<boolean>) => {
       state.enableQuickAssistant = action.payload
     },
-    setMultiModelMessageStyle: (state, action: PayloadAction<'horizontal' | 'vertical' | 'fold'>) => {
+    setMultiModelMessageStyle: (state, action: PayloadAction<'horizontal' | 'vertical' | 'fold' | 'grid'>) => {
       state.multiModelMessageStyle = action.payload
     },
     setNotionDatabaseID: (state, action: PayloadAction<string>) => {
@@ -273,6 +306,27 @@ const settingsSlice = createSlice({
     },
     setNotionApiKey: (state, action: PayloadAction<string>) => {
       state.notionApiKey = action.payload
+    },
+    setNotionPageNameKey: (state, action: PayloadAction<string>) => {
+      state.notionPageNameKey = action.payload
+    },
+    setThoughtAutoCollapse: (state, action: PayloadAction<boolean>) => {
+      state.thoughtAutoCollapse = action.payload
+    },
+    setNotionAutoSplit: (state, action: PayloadAction<boolean>) => {
+      state.notionAutoSplit = action.payload
+    },
+    setNotionSplitSize: (state, action: PayloadAction<number>) => {
+      state.notionSplitSize = action.payload
+    },
+    setYuqueToken: (state, action: PayloadAction<string>) => {
+      state.yuqueToken = action.payload
+    },
+    setYuqueRepoId: (state, action: PayloadAction<string>) => {
+      state.yuqueRepoId = action.payload
+    },
+    setYuqueUrl: (state, action: PayloadAction<string>) => {
+      state.yuqueUrl = action.payload
     }
   }
 })
@@ -297,6 +351,7 @@ export const {
   setWindowStyle,
   setTopicPosition,
   setShowTopicTime,
+  setShowAssistantIcon,
   setPasteLongTextAsFile,
   setRenderInputMessageAsMarkdown,
   setClickAssistantToShowTopic,
@@ -309,7 +364,10 @@ export const {
   setWebdavSyncInterval,
   setCodeShowLineNumbers,
   setCodeCollapsible,
+  setCodeWrappable,
   setMathEngine,
+  setGridColumns,
+  setGridPopoverTrigger,
   setMessageStyle,
   setCodeStyle,
   setTranslateModelPrompt,
@@ -324,7 +382,14 @@ export const {
   setEnableQuickAssistant,
   setMultiModelMessageStyle,
   setNotionDatabaseID,
-  setNotionApiKey
+  setNotionApiKey,
+  setNotionPageNameKey,
+  setThoughtAutoCollapse,
+  setNotionAutoSplit,
+  setNotionSplitSize,
+  setYuqueToken,
+  setYuqueRepoId,
+  setYuqueUrl
 } = settingsSlice.actions
 
 export default settingsSlice.reducer

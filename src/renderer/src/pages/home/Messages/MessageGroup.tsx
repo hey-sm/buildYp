@@ -1,29 +1,28 @@
-import { ColumnHeightOutlined, ColumnWidthOutlined, DeleteOutlined, FolderOutlined } from '@ant-design/icons'
-import ModelAvatar from '@renderer/components/Avatar/ModelAvatar'
-import { HStack } from '@renderer/components/Layout'
 import Scrollbar from '@renderer/components/Scrollbar'
 import { useSettings } from '@renderer/hooks/useSettings'
-import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { MultiModelMessageStyle } from '@renderer/store/settings'
-import { Message, Model, Topic } from '@renderer/types'
-import { Button, Segmented as AntdSegmented } from 'antd'
-import { Dispatch, FC, SetStateAction, useEffect, useState } from 'react'
+import type { Message, Topic } from '@renderer/types'
+import { classNames } from '@renderer/utils'
+import { Popover } from 'antd'
+import type { Dispatch, SetStateAction } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 
-import MessageItem from './Message'
+import MessageGroupMenuBar from './MessageGroupMenuBar'
+import MessageStream from './MessageStream'
 
 interface Props {
   messages: (Message & { index: number })[]
-  topic?: Topic
+  topic: Topic
   hidePresetMessages?: boolean
-  onGetMessages?: () => Message[]
-  onSetMessages?: Dispatch<SetStateAction<Message[]>>
-  onDeleteMessage?: (message: Message) => Promise<void>
-  onDeleteGroupMessages?: (askId: string) => Promise<void>
+  onGetMessages: () => Message[]
+  onSetMessages: Dispatch<SetStateAction<Message[]>>
+  onDeleteMessage: (message: Message) => Promise<void>
+  onDeleteGroupMessages: (askId: string) => Promise<void>
 }
 
-const MessageGroup: FC<Props> = ({
+const MessageGroup = ({
   messages,
   topic,
   hidePresetMessages,
@@ -31,8 +30,8 @@ const MessageGroup: FC<Props> = ({
   onSetMessages,
   onGetMessages,
   onDeleteGroupMessages
-}) => {
-  const { multiModelMessageStyle: multiModelMessageStyleSetting } = useSettings()
+}: Props) => {
+  const { multiModelMessageStyle: multiModelMessageStyleSetting, gridColumns, gridPopoverTrigger } = useSettings()
   const { t } = useTranslation()
 
   const [multiModelMessageStyle, setMultiModelMessageStyle] =
@@ -42,8 +41,13 @@ const MessageGroup: FC<Props> = ({
   const [selectedIndex, setSelectedIndex] = useState(messageLength - 1)
 
   const isGrouped = messageLength > 1
+  const isHorizontal = multiModelMessageStyle === 'horizontal'
+  const isGrid = multiModelMessageStyle === 'grid'
 
-  const onDelete = async () => {
+  const handleDeleteGroup = useCallback(async () => {
+    const askId = messages[0]?.askId
+    if (!askId) return
+
     window.modal.confirm({
       title: t('message.group.delete.title'),
       content: t('message.group.delete.content'),
@@ -52,121 +56,156 @@ const MessageGroup: FC<Props> = ({
         danger: true
       },
       okText: t('common.delete'),
-      onOk: () => {
-        const askId = messages[0].askId
-        askId && onDeleteGroupMessages?.(askId)
-      }
+      onOk: () => onDeleteGroupMessages(askId)
     })
-  }
+  }, [messages, onDeleteGroupMessages, t])
 
   useEffect(() => {
     setSelectedIndex(messageLength - 1)
   }, [messageLength])
 
-  const isHorizontal = multiModelMessageStyle === 'horizontal'
+  const renderMessage = useCallback(
+    (message: Message & { index: number }, index: number) => {
+      const isGridGroupMessage = isGrid && message.role === 'assistant' && isGrouped
+      const messageProps = {
+        isGrouped,
+        message,
+        topic,
+        index: message.index,
+        hidePresetMessages,
+        style: {
+          paddingTop: isGrouped && ['horizontal', 'grid'].includes(multiModelMessageStyle) ? 0 : 15
+        },
+        onSetMessages,
+        onDeleteMessage,
+        onGetMessages
+      }
+
+      const messageWrapper = (
+        <MessageWrapper
+          $layout={multiModelMessageStyle}
+          $selected={index === selectedIndex}
+          $isGrouped={isGrouped}
+          key={message.id}
+          className={message.role === 'assistant' && isHorizontal && isGrouped ? 'group-message-wrapper' : ''}>
+          <MessageStream {...messageProps} />
+        </MessageWrapper>
+      )
+
+      if (isGridGroupMessage) {
+        return (
+          <Popover
+            key={message.id}
+            content={
+              <MessageWrapper
+                $layout={multiModelMessageStyle}
+                $selected={index === selectedIndex}
+                $isGrouped={isGrouped}
+                $isInPopover={true}>
+                <MessageStream {...messageProps} />
+              </MessageWrapper>
+            }
+            trigger={gridPopoverTrigger}
+            styles={{ root: { maxWidth: '60vw', minWidth: '550px', overflowY: 'auto', zIndex: 1000 } }}
+            getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}>
+            {messageWrapper}
+          </Popover>
+        )
+      }
+
+      return messageWrapper
+    },
+    [
+      isGrid,
+      isGrouped,
+      isHorizontal,
+      multiModelMessageStyle,
+      selectedIndex,
+      topic,
+      hidePresetMessages,
+      onSetMessages,
+      onDeleteMessage,
+      onGetMessages,
+      gridPopoverTrigger
+    ]
+  )
 
   return (
-    <GroupContainer $isGrouped={isGrouped} $layout={multiModelMessageStyle}>
-      <GridContainer $count={messageLength} $layout={multiModelMessageStyle}>
-        {messages.map((message, index) => (
-          <MessageWrapper
-            $layout={multiModelMessageStyle}
-            $selected={index === selectedIndex}
-            $isGrouped={isGrouped}
-            key={message.id}
-            className={message.role === 'assistant' && isHorizontal && isGrouped ? 'group-message-wrapper' : ''}>
-            <MessageItem
-              isGrouped={isGrouped}
-              message={message}
-              topic={topic}
-              index={message.index}
-              hidePresetMessages={hidePresetMessages}
-              style={{ paddingTop: isGrouped && multiModelMessageStyle === 'horizontal' ? 0 : 15 }}
-              onSetMessages={onSetMessages}
-              onDeleteMessage={onDeleteMessage}
-              onGetMessages={onGetMessages}
-            />
-          </MessageWrapper>
-        ))}
+    <GroupContainer
+      $isGrouped={isGrouped}
+      $layout={multiModelMessageStyle}
+      className={classNames([isGrouped && 'group-container', isHorizontal && 'horizontal', isGrid && 'grid'])}>
+      <GridContainer
+        $count={messageLength}
+        $layout={multiModelMessageStyle}
+        $gridColumns={gridColumns}
+        className={classNames([isGrouped && 'group-grid-container', isHorizontal && 'horizontal', isGrid && 'grid'])}>
+        {messages.map((message, index) => renderMessage(message, index))}
       </GridContainer>
       {isGrouped && (
-        <GroupMenuBar className="group-menu-bar" $layout={multiModelMessageStyle}>
-          <HStack style={{ alignItems: 'center', flex: 1, overflow: 'hidden' }}>
-            <LayoutContainer>
-              {['fold', 'vertical', 'horizontal'].map((layout) => (
-                <LayoutOption
-                  key={layout}
-                  active={multiModelMessageStyle === layout}
-                  onClick={() => setMultiModelMessageStyle(layout as MultiModelMessageStyle)}>
-                  {layout === 'fold' ? (
-                    <FolderOutlined />
-                  ) : layout === 'horizontal' ? (
-                    <ColumnWidthOutlined />
-                  ) : (
-                    <ColumnHeightOutlined />
-                  )}
-                </LayoutOption>
-              ))}
-            </LayoutContainer>
-            {multiModelMessageStyle === 'fold' && (
-              <ModelsContainer>
-                <Segmented
-                  value={selectedIndex.toString()}
-                  onChange={(value) => {
-                    setSelectedIndex(Number(value))
-                    EventEmitter.emit(EVENT_NAMES.LOCATE_MESSAGE + ':' + messages[Number(value)].id, false)
-                  }}
-                  options={messages.map((message, index) => ({
-                    label: (
-                      <SegmentedLabel>
-                        <ModelAvatar model={message.model as Model} size={20} />
-                        <ModelName>{message.model?.name}</ModelName>
-                      </SegmentedLabel>
-                    ),
-                    value: index.toString()
-                  }))}
-                  size="small"
-                />
-              </ModelsContainer>
-            )}
-          </HStack>
-          <Button
-            type="text"
-            size="small"
-            icon={<DeleteOutlined style={{ color: 'var(--color-error)' }} />}
-            onClick={onDelete}
-          />
-        </GroupMenuBar>
+        <MessageGroupMenuBar
+          multiModelMessageStyle={multiModelMessageStyle}
+          setMultiModelMessageStyle={setMultiModelMessageStyle}
+          messages={messages}
+          selectedIndex={selectedIndex}
+          setSelectedIndex={setSelectedIndex}
+          onDelete={handleDeleteGroup}
+        />
       )}
     </GroupContainer>
   )
 }
 
 const GroupContainer = styled.div<{ $isGrouped: boolean; $layout: MultiModelMessageStyle }>`
-  padding-top: ${({ $isGrouped, $layout }) => ($isGrouped && $layout === 'horizontal' ? '15px' : '0')};
+  padding-top: ${({ $isGrouped, $layout }) => ($isGrouped && 'horizontal' === $layout ? '15px' : '0')};
+  &.group-container.horizontal,
+  &.group-container.grid {
+    padding: 0 20px;
+    .message {
+      padding: 0;
+    }
+    .group-menu-bar {
+      margin-left: 0;
+      margin-right: 0;
+    }
+  }
 `
 
-const GridContainer = styled.div<{ $count: number; $layout: MultiModelMessageStyle }>`
+const GridContainer = styled.div<{ $count: number; $layout: MultiModelMessageStyle; $gridColumns: number }>`
   width: 100%;
   display: grid;
+  gap: ${({ $layout }) => ($layout === 'horizontal' ? '16px' : '0')};
+  overflow-y: auto;
   grid-template-columns: repeat(
-    ${(props) => (['fold', 'vertical'].includes(props.$layout) ? 1 : props.$count)},
+    ${({ $layout, $count }) => (['fold', 'vertical'].includes($layout) ? 1 : $count)},
     minmax(550px, 1fr)
   );
-  gap: ${({ $layout }) => ($layout === 'horizontal' ? '16px' : '0')};
   @media (max-width: 800px) {
     grid-template-columns: repeat(
-      ${(props) => (['fold', 'vertical'].includes(props.$layout) ? 1 : props.$count)},
+      ${({ $layout, $count }) => (['fold', 'vertical'].includes($layout) ? 1 : $count)},
       minmax(400px, 1fr)
     );
   }
-  overflow-y: auto;
+  ${({ $layout }) =>
+    $layout === 'horizontal' &&
+    css`
+      margin-top: 15px;
+    `}
+  ${({ $gridColumns, $layout, $count }) =>
+    $layout === 'grid' &&
+    css`
+      margin-top: 15px;
+      grid-template-columns: repeat(${$count > 1 ? $gridColumns || 2 : 1}, minmax(0, 1fr));
+      grid-template-rows: auto;
+      gap: 16px;
+    `}
 `
 
 interface MessageWrapperProps {
-  $layout: 'fold' | 'horizontal' | 'vertical'
+  $layout: 'fold' | 'horizontal' | 'vertical' | 'grid'
   $selected: boolean
   $isGrouped: boolean
+  $isInPopover?: boolean
 }
 
 const MessageWrapper = styled(Scrollbar)<MessageWrapperProps>`
@@ -180,6 +219,7 @@ const MessageWrapper = styled(Scrollbar)<MessageWrapperProps>`
     }
     return 'block'
   }};
+
   ${({ $layout, $isGrouped }) => {
     if ($layout === 'horizontal' && $isGrouped) {
       return css`
@@ -187,82 +227,27 @@ const MessageWrapper = styled(Scrollbar)<MessageWrapperProps>`
         padding: 10px;
         border-radius: 6px;
         max-height: 600px;
-        overflow-y: auto;
         margin-bottom: 10px;
       `
     }
     return ''
   }}
+
+  ${({ $layout, $isInPopover, $isGrouped }) => {
+    return $layout === 'grid' && $isGrouped
+      ? css`
+          max-height: ${$isInPopover ? '50vh' : '300px'};
+          overflow-y: ${$isInPopover ? 'auto' : 'hidden'};
+          border: 0.5px solid ${$isInPopover ? 'transparent' : 'var(--color-border)'};
+          padding: 10px;
+          border-radius: 6px;
+          background-color: var(--color-background);
+        `
+      : css`
+          overflow-y: auto;
+          border-radius: 6px;
+        `
+  }}
 `
 
-const GroupMenuBar = styled.div<{ $layout: MultiModelMessageStyle }>`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  margin-top: 10px;
-  justify-content: space-between;
-  overflow: hidden;
-  border: 0.5px solid var(--color-border);
-  height: 40px;
-  margin-left: ${({ $layout }) => ($layout === 'horizontal' ? '0' : '40px')};
-  transition: all 0.3s ease;
-`
-
-const LayoutContainer = styled.div`
-  display: flex;
-  gap: 10px;
-  flex-direction: row;
-`
-
-const LayoutOption = styled.div<{ active: boolean }>`
-  cursor: pointer;
-  padding: 2px 10px;
-  border-radius: 4px;
-  background-color: ${({ active }) => (active ? 'var(--color-background-soft)' : 'transparent')};
-
-  &:hover {
-    background-color: ${({ active }) => (active ? 'var(--color-background-soft)' : 'var(--color-hover)')};
-  }
-`
-
-const ModelsContainer = styled(Scrollbar)`
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  &::-webkit-scrollbar {
-    display: none;
-  }
-`
-
-const Segmented = styled(AntdSegmented)`
-  .ant-segmented-item {
-    background-color: transparent !important;
-    transition: none !important;
-    &:hover {
-      background: transparent !important;
-    }
-  }
-  .ant-segmented-thumb,
-  .ant-segmented-item-selected {
-    background-color: transparent !important;
-    border: 0.5px solid var(--color-border);
-    transition: none !important;
-  }
-`
-
-const SegmentedLabel = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 0;
-`
-
-const ModelName = styled.span`
-  font-weight: 500;
-  font-size: 12px;
-`
-
-export default MessageGroup
+export default memo(MessageGroup)

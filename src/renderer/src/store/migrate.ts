@@ -5,7 +5,7 @@ import { TRANSLATE_PROMPT } from '@renderer/config/prompts'
 import db from '@renderer/databases'
 import i18n from '@renderer/i18n'
 import { Assistant } from '@renderer/types'
-import { getDefaultGroupName, runAsyncFunction, uuid } from '@renderer/utils'
+import { getDefaultGroupName, getLeadingEmoji, runAsyncFunction, uuid } from '@renderer/utils'
 import { isEmpty } from 'lodash'
 import { createMigrate } from 'redux-persist'
 
@@ -71,7 +71,7 @@ const migrateConfig = {
             id: 'ollama',
             name: 'Ollama',
             apiKey: '',
-            apiHost: 'http://localhost:11434/v1/',
+            apiHost: 'http://localhost:11434',
             isSystem: true,
             models: []
           }
@@ -927,60 +927,318 @@ const migrateConfig = {
     return state
   },
   '66': (state: RootState) => {
-    state.settings.targetLanguage = 'english'
+    state.llm.providers.push(
+      {
+        id: 'gitee-ai',
+        name: 'gitee ai',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://ai.gitee.com',
+        models: SYSTEM_MODELS['gitee-ai'],
+        isSystem: true,
+        enabled: false
+      },
+      {
+        id: 'ppio',
+        name: 'PPIO',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://api.ppinfra.com/v3/openai',
+        models: SYSTEM_MODELS.ppio,
+        isSystem: true,
+        enabled: false
+      }
+    )
+
+    state.llm.providers = state.llm.providers.filter((provider) => provider.id !== 'graphrag-kylin-mountain')
+
+    if (state.minapps) {
+      const aistudio = DEFAULT_MIN_APPS.find((app) => app.id === 'aistudio')
+      if (aistudio) {
+        state.minapps.enabled.push(aistudio)
+      }
+    }
+
     return state
   },
   '67': (state: RootState) => {
-    return {
-      ...state,
-      llm: {
-        ...state.llm,
-        defaultModel: SYSTEM_MODELS.bailian[0],
-        providers: state.llm.providers.map((provider) => {
-          if (provider.id === 'dashscope') {
-            return {
-              ...provider,
-              models: SYSTEM_MODELS.bailian,
-              enabled: true,
-              apiKey: 'sk-2909a8954b604f7c847c6d664c912fe6'
-            }
-          }
-          if (provider.id === 'silicon') {
-            return {
-              ...provider,
-              enabled: false
-            }
-          }
-          return provider
-        })
+    if (state.minapps) {
+      const xiaoyi = DEFAULT_MIN_APPS.find((app) => app.id === 'xiaoyi')
+      if (xiaoyi) {
+        state.minapps.enabled.push(xiaoyi)
       }
     }
+
+    state.llm.providers.push(
+      {
+        id: 'modelscope',
+        name: 'ModelScope',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://api-inference.modelscope.cn/v1/',
+        models: SYSTEM_MODELS.modelscope,
+        isSystem: true,
+        enabled: false
+      },
+      {
+        id: 'lmstudio',
+        name: 'LM Studio',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'http://localhost:1234',
+        models: SYSTEM_MODELS.lmstudio,
+        isSystem: true,
+        enabled: false
+      },
+      {
+        id: 'perplexity',
+        name: 'Perplexity',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://api.perplexity.ai/',
+        models: SYSTEM_MODELS.perplexity,
+        isSystem: true,
+        enabled: false
+      },
+      {
+        id: 'infini',
+        name: 'Infini',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://cloud.infini-ai.com/maas',
+        models: SYSTEM_MODELS.infini,
+        isSystem: true,
+        enabled: false
+      },
+      {
+        id: 'dmxapi',
+        name: 'DMXAPI',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://api.dmxapi.com',
+        models: SYSTEM_MODELS.dmxapi,
+        isSystem: true,
+        enabled: false
+      }
+    )
+
+    state.llm.settings.lmstudio = {
+      keepAliveTime: 5
+    }
+
+    return state
   },
   '68': (state: RootState) => {
-    return {
-      ...state,
-      llm: {
-        ...state.llm,
-        defaultModel: SYSTEM_MODELS.bailian[0],
-        providers: state.llm.providers.map((provider) => {
-          if (provider.id === 'dashscope') {
-            return {
-              ...provider,
-              models: SYSTEM_MODELS.bailian,
-              enabled: true,
-              apiKey: 'sk-2909a8954b604f7c847c6d664c912fe6'
-            }
-          }
-          if (provider.id === 'silicon') {
-            return {
-              ...provider,
-              enabled: false
-            }
-          }
-          return provider
-        })
+    if (state.minapps) {
+      const notebooklm = DEFAULT_MIN_APPS.find((app) => app.id === 'notebooklm')
+      if (notebooklm) {
+        state.minapps.enabled.push(notebooklm)
       }
     }
+
+    if (!state.llm.providers.find((provider) => provider.id === 'modelscope')) {
+      state.llm.providers.push({
+        id: 'modelscope',
+        name: 'ModelScope',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'https://api-inference.modelscope.cn/v1/',
+        models: SYSTEM_MODELS.modelscope,
+        isSystem: true,
+        enabled: false
+      })
+    }
+
+    if (!state.llm.providers.find((provider) => provider.id === 'lmstudio')) {
+      state.llm.providers.push({
+        id: 'lmstudio',
+        name: 'LM Studio',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'http://localhost:1234',
+        models: SYSTEM_MODELS.lmstudio,
+        isSystem: true,
+        enabled: false
+      })
+    }
+
+    return state
+  },
+  '69': (state: RootState) => {
+    if (state.minapps) {
+      const coze = DEFAULT_MIN_APPS.find((app) => app.id === 'coze')
+      if (coze) {
+        state.minapps.enabled.push(coze)
+      }
+    }
+    state.settings.gridColumns = 2
+    state.settings.gridPopoverTrigger = 'hover'
+    return state
+  },
+  '70': (state: RootState) => {
+    state.llm.providers.forEach((provider) => {
+      if (provider.id === 'dmxapi') {
+        provider.apiHost = 'https://www.dmxapi.cn'
+      }
+    })
+    return state
+  },
+  '71': (state: RootState) => {
+    const appIds = ['dify', 'wpslingxi', 'lechat', 'abacus', 'lambdachat', 'baidu-ai-search']
+
+    if (state.minapps) {
+      appIds.forEach((id) => {
+        const app = DEFAULT_MIN_APPS.find((app) => app.id === id)
+        if (app) {
+          state.minapps.enabled.push(app)
+        }
+      })
+      // remove zhihu-zhiada
+      state.minapps.enabled = state.minapps.enabled.filter((app) => app.id !== 'zhihu-zhiada')
+      state.minapps.disabled = state.minapps.disabled.filter((app) => app.id !== 'zhihu-zhiada')
+    }
+
+    state.settings.thoughtAutoCollapse = true
+
+    return state
+  },
+  '72': (state: RootState) => {
+    if (state.minapps) {
+      const monica = DEFAULT_MIN_APPS.find((app) => app.id === 'monica')
+      if (monica) {
+        state.minapps.enabled.push(monica)
+      }
+    }
+
+    // remove duplicate lmstudio providers
+    const emptyLmStudioProviderIndex = state.llm.providers.findLastIndex(
+      (provider) => provider.id === 'lmstudio' && provider.models.length === 0
+    )
+
+    if (emptyLmStudioProviderIndex !== -1) {
+      state.llm.providers.splice(emptyLmStudioProviderIndex, 1)
+    }
+
+    return state
+  },
+  '73': (state: RootState) => {
+    if (state.websearch) {
+      state.websearch.searchWithTime = true
+      state.websearch.maxResults = 5
+      state.websearch.excludeDomains = []
+    }
+
+    if (!state.llm.providers.find((provider) => provider.id === 'lmstudio')) {
+      state.llm.providers.push({
+        id: 'lmstudio',
+        name: 'LM Studio',
+        type: 'openai',
+        apiKey: '',
+        apiHost: 'http://localhost:1234',
+        models: SYSTEM_MODELS.lmstudio,
+        isSystem: true,
+        enabled: false
+      })
+    }
+
+    state.llm.providers.splice(1, 0, {
+      id: 'o3',
+      name: 'O3',
+      apiKey: '',
+      apiHost: 'https://api.o3.fan',
+      models: SYSTEM_MODELS.o3,
+      isSystem: true,
+      type: 'openai',
+      enabled: false
+    })
+
+    state.assistants.assistants.forEach((assistant) => {
+      const leadingEmoji = getLeadingEmoji(assistant.name)
+      if (leadingEmoji) {
+        assistant.emoji = leadingEmoji
+        assistant.name = assistant.name.replace(leadingEmoji, '').trim()
+      }
+    })
+
+    state.agents.agents.forEach((agent) => {
+      const leadingEmoji = getLeadingEmoji(agent.name)
+      if (leadingEmoji) {
+        agent.emoji = leadingEmoji
+        agent.name = agent.name.replace(leadingEmoji, '').trim()
+      }
+    })
+
+    const defaultAssistantEmoji = getLeadingEmoji(state.assistants.defaultAssistant.name)
+
+    if (defaultAssistantEmoji) {
+      state.assistants.defaultAssistant.emoji = defaultAssistantEmoji
+      state.assistants.defaultAssistant.name = state.assistants.defaultAssistant.name
+        .replace(defaultAssistantEmoji, '')
+        .trim()
+    }
+
+    return state
+  },
+  '74': (state: RootState) => {
+    state.llm.providers.push({
+      id: 'xirang',
+      name: 'Xirang',
+      type: 'openai',
+      apiKey: '',
+      apiHost: 'https://wishub-x1.ctyun.cn',
+      models: SYSTEM_MODELS.xirang,
+      isSystem: true,
+      enabled: false
+    })
+    return state
+  },
+  '75': (state: RootState) => {
+    if (state.minapps) {
+      const you = DEFAULT_MIN_APPS.find((app) => app.id === 'you')
+      const cici = DEFAULT_MIN_APPS.find((app) => app.id === 'cici')
+      const zhihu = DEFAULT_MIN_APPS.find((app) => app.id === 'zhihu')
+      you && state.minapps.enabled.push(you)
+      cici && state.minapps.enabled.push(cici)
+      zhihu && state.minapps.enabled.push(zhihu)
+    }
+    return state
+  },
+  '76': (state: RootState) => {
+    state.llm.providers.push({
+      id: 'tencent-cloud-ti',
+      name: 'Tencent Cloud TI',
+      type: 'openai',
+      apiKey: '',
+      apiHost: 'https://api.lkeap.cloud.tencent.com',
+      models: SYSTEM_MODELS['tencent-cloud-ti'],
+      isSystem: true,
+      enabled: false
+    })
+    return state
+  },
+  '77': (state: RootState) => {
+    if (state.websearch) {
+      if (!state.websearch.providers.find((p) => p.id === 'searxng')) {
+        state.websearch.providers.push(
+          {
+            id: 'searxng',
+            name: 'Searxng',
+            apiHost: ''
+          },
+          {
+            id: 'exa',
+            name: 'Exa',
+            apiKey: ''
+          }
+        )
+      }
+      state.websearch.providers.forEach((p) => {
+        // @ts-ignore eslint-disable-next-line
+        delete p.enabled
+      })
+    }
+
+    return state
   }
 }
 

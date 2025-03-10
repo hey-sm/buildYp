@@ -20,6 +20,7 @@ import ClaudeModelLogo from '@renderer/assets/images/models/claude.png'
 import ClaudeModelLogoDark from '@renderer/assets/images/models/claude_dark.png'
 import CodegeexModelLogo from '@renderer/assets/images/models/codegeex.png'
 import CodegeexModelLogoDark from '@renderer/assets/images/models/codegeex_dark.png'
+import CodestralModelLogo from '@renderer/assets/images/models/codestral.png'
 import CohereModelLogo from '@renderer/assets/images/models/cohere.png'
 import CohereModelLogoDark from '@renderer/assets/images/models/cohere_dark.png'
 import CopilotModelLogo from '@renderer/assets/images/models/copilot.png'
@@ -66,6 +67,7 @@ import IbmModelLogo from '@renderer/assets/images/models/ibm.png'
 import IbmModelLogoDark from '@renderer/assets/images/models/ibm_dark.png'
 import InternlmModelLogo from '@renderer/assets/images/models/internlm.png'
 import InternlmModelLogoDark from '@renderer/assets/images/models/internlm_dark.png'
+import InternvlModelLogo from '@renderer/assets/images/models/internvl.png'
 import JinaModelLogo from '@renderer/assets/images/models/jina.png'
 import JinaModelLogoDark from '@renderer/assets/images/models/jina_dark.png'
 import KeLingModelLogo from '@renderer/assets/images/models/keling.png'
@@ -98,6 +100,8 @@ import NvidiaModelLogo from '@renderer/assets/images/models/nvidia.png'
 import NvidiaModelLogoDark from '@renderer/assets/images/models/nvidia_dark.png'
 import PalmModelLogo from '@renderer/assets/images/models/palm.png'
 import PalmModelLogoDark from '@renderer/assets/images/models/palm_dark.png'
+import PerplexityModelLogo from '@renderer/assets/images/models/perplexity.png'
+import PerplexityModelLogoDark from '@renderer/assets/images/models/perplexity.png'
 import PixtralModelLogo from '@renderer/assets/images/models/pixtral.png'
 import PixtralModelLogoDark from '@renderer/assets/images/models/pixtral_dark.png'
 import QwenModelLogo from '@renderer/assets/images/models/qwen.png'
@@ -120,6 +124,8 @@ import ViduModelLogo from '@renderer/assets/images/models/vidu.png'
 import ViduModelLogoDark from '@renderer/assets/images/models/vidu_dark.png'
 import WenxinModelLogo from '@renderer/assets/images/models/wenxin.png'
 import WenxinModelLogoDark from '@renderer/assets/images/models/wenxin_dark.png'
+import XirangModelLogo from '@renderer/assets/images/models/xirang.png'
+import XirangModelLogoDark from '@renderer/assets/images/models/xirang_dark.png'
 import YiModelLogo from '@renderer/assets/images/models/yi.png'
 import YiModelLogoDark from '@renderer/assets/images/models/yi_dark.png'
 import { getProviderByModel } from '@renderer/services/AssistantService'
@@ -128,17 +134,20 @@ import OpenAI from 'openai'
 
 import { getWebSearchTools } from './tools'
 
+// Vision models
 const visionAllowedModels = [
   'llava',
   'moondream',
   'minicpm',
   'gemini-1\\.5',
+  'gemini-2\\.0',
   'gemini-exp',
   'claude-3',
   'vision',
   'glm-4v',
   'qwen-vl',
   'qwen2-vl',
+  'qwen2.5-vl',
   'internvl2',
   'grok-vision-beta',
   'pixtral',
@@ -146,21 +155,37 @@ const visionAllowedModels = [
   'gpt-4o(?:-[\\w-]+)?',
   'chatgpt-4o(?:-[\\w-]+)?',
   'o1(?:-[\\w-]+)?',
-  'deepseek-vl(?:[\\w-]+)?'
+  'deepseek-vl(?:[\\w-]+)?',
+  'kimi-latest'
 ]
 
 const visionExcludedModels = ['gpt-4-\\d+-preview', 'gpt-4-turbo-preview', 'gpt-4-32k', 'gpt-4-\\d+']
-
 export const VISION_REGEX = new RegExp(
   `\\b(?!(?:${visionExcludedModels.join('|')})\\b)(${visionAllowedModels.join('|')})\\b`,
   'i'
 )
 
+// Text to image models
 export const TEXT_TO_IMAGE_REGEX = /flux|diffusion|stabilityai|sd-|dall|cogview|janus/i
-export const REASONING_REGEX = /^(o\d+(?:-[\w-]+)?|.*\breasoner\b.*|.*-[rR]\d+.*)$/i
 
-export const EMBEDDING_REGEX = /(?:^text-|embed|rerank|davinci|babbage|bge-|e5-|LLM2Vec|retrieval|uae-|gte-|jina)/i
+// Reasoning models
+export const REASONING_REGEX =
+  /^(o\d+(?:-[\w-]+)?|.*\b(?:reasoner|thinking)\b.*|.*-[rR]\d+.*|.*\bqwq(?:-[\w-]+)?\b.*)$/i
+
+// Embedding models
+export const EMBEDDING_REGEX = /(?:^text-|embed|bge-|e5-|LLM2Vec|retrieval|uae-|gte-|jina-clip|jina-embeddings)/i
 export const NOT_SUPPORTED_REGEX = /(?:^tts|rerank|whisper|speech)/i
+
+// Tool calling models
+export const TOOL_CALLING_MODELS = ['gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-4.5', 'claude']
+export const TOOL_CALLING_REGEX = new RegExp(`\\b(?:${TOOL_CALLING_MODELS.join('|')})\\b`, 'i')
+export function isToolCallingModel(model: Model): boolean {
+  if (['gemini', 'deepseek', 'anthropic'].includes(model.provider)) {
+    return true
+  }
+
+  return TOOL_CALLING_REGEX.test(model.id)
+}
 
 export function getModelLogo(modelId: string) {
   const isLight = true
@@ -173,6 +198,7 @@ export function getModelLogo(modelId: string) {
     pixtral: isLight ? PixtralModelLogo : PixtralModelLogoDark,
     jina: isLight ? JinaModelLogo : JinaModelLogoDark,
     abab: isLight ? MinimaxModelLogo : MinimaxModelLogoDark,
+    minimax: isLight ? MinimaxModelLogo : MinimaxModelLogoDark,
     o3: isLight ? ChatGPTo1ModelLogo : ChatGPTo1ModelLogoDark,
     o1: isLight ? ChatGPTo1ModelLogo : ChatGPTo1ModelLogoDark,
     'gpt-3': isLight ? ChatGPT35ModelLogo : ChatGPT35ModelLogoDark,
@@ -181,18 +207,23 @@ export function getModelLogo(modelId: string) {
     'text-moderation': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
     'babbage-': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
     'sora-': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
-    'omni-': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
+    '(^|/)omni-': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
+    'Embedding-V1': isLight ? WenxinModelLogo : WenxinModelLogoDark,
+    'text-embedding-v': isLight ? QwenModelLogo : QwenModelLogoDark,
     'text-embedding': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
     'davinci-': isLight ? ChatGptModelLogo : ChatGptModelLogoDakr,
     glm: isLight ? ChatGLMModelLogo : ChatGLMModelLogoDark,
     deepseek: isLight ? DeepSeekModelLogo : DeepSeekModelLogoDark,
-    qwen: isLight ? QwenModelLogo : QwenModelLogoDark,
+    '(qwen|qwq-|qvq-)': isLight ? QwenModelLogo : QwenModelLogoDark,
     gemma: isLight ? GemmaModelLogo : GemmaModelLogoDark,
     'yi-': isLight ? YiModelLogo : YiModelLogoDark,
     llama: isLight ? LlamaModelLogo : LlamaModelLogoDark,
     mixtral: isLight ? MistralModelLogo : MistralModelLogo,
     mistral: isLight ? MistralModelLogo : MistralModelLogoDark,
+    codestral: CodestralModelLogo,
+    ministral: isLight ? MistralModelLogo : MistralModelLogoDark,
     moonshot: isLight ? MoonshotModelLogo : MoonshotModelLogoDark,
+    kimi: isLight ? MoonshotModelLogo : MoonshotModelLogoDark,
     phi: isLight ? MicrosoftModelLogo : MicrosoftModelLogoDark,
     baichuan: isLight ? BaichuanModelLogo : BaichuanModelLogoDark,
     claude: isLight ? ClaudeModelLogo : ClaudeModelLogoDark,
@@ -221,6 +252,7 @@ export function getModelLogo(modelId: string) {
     grok: isLight ? GrokModelLogo : GrokModelLogoDark,
     hunyuan: isLight ? HunyuanModelLogo : HunyuanModelLogoDark,
     internlm: isLight ? InternlmModelLogo : InternlmModelLogoDark,
+    internvl: InternvlModelLogo,
     llava: isLight ? LLavaModelLogo : LLavaModelLogoDark,
     magic: isLight ? MagicModelLogo : MagicModelLogoDark,
     midjourney: isLight ? MidjourneyModelLogo : MidjourneyModelLogoDark,
@@ -259,13 +291,17 @@ export function getModelLogo(modelId: string) {
     rakutenai: isLight ? RakutenaiModelLogo : RakutenaiModelLogoDark,
     ibm: isLight ? IbmModelLogo : IbmModelLogoDark,
     'google/': isLight ? GoogleModelLogo : GoogleModelLogoDark,
+    xirang: isLight ? XirangModelLogo : XirangModelLogoDark,
     hugging: isLight ? HuggingfaceModelLogo : HuggingfaceModelLogoDark,
     embedding: isLight ? EmbeddingModelLogo : EmbeddingModelLogoDark,
+    perplexity: isLight ? PerplexityModelLogo : PerplexityModelLogoDark,
+    sonar: isLight ? PerplexityModelLogo : PerplexityModelLogoDark,
     'bge-': BgeModelLogo
   }
 
   for (const key in logoMap) {
-    if (modelId.toLowerCase().includes(key)) {
+    const regex = new RegExp(key, 'i')
+    if (regex.test(modelId)) {
       return logoMap[key]
     }
   }
@@ -312,7 +348,136 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       group: 'Qwen'
     }
   ],
+  o3: [
+    {
+      id: 'gpt-4o',
+      provider: 'o3',
+      name: 'GPT-4o',
+      group: 'OpenAI'
+    },
+    {
+      id: 'o1-mini',
+      provider: 'o3',
+      name: 'o1-mini',
+      group: 'OpenAI'
+    },
+    {
+      id: 'o1-preview',
+      provider: 'o3',
+      name: 'o1-preview',
+      group: 'OpenAI'
+    },
+    {
+      id: 'o3-mini',
+      provider: 'o3',
+      name: 'o3-mini',
+      group: 'OpenAI'
+    },
+    {
+      id: 'o3-mini-high',
+      provider: 'o3',
+      name: 'o3-mini-high',
+      group: 'OpenAI'
+    },
+    {
+      id: 'claude-3-7-sonnet-20250219',
+      provider: 'o3',
+      name: 'claude-3-7-sonnet-20250219',
+      group: 'Anthropic'
+    },
+    {
+      id: 'claude-3-5-sonnet-20241022',
+      provider: 'o3',
+      name: 'claude-3-5-sonnet-20241022',
+      group: 'Anthropic'
+    },
+    {
+      id: 'claude-3-5-haiku-20241022',
+      provider: 'o3',
+      name: 'claude-3-5-haiku-20241022',
+      group: 'Anthropic'
+    },
+    {
+      id: 'claude-3-opus-20240229',
+      provider: 'o3',
+      name: 'claude-3-opus-20240229',
+      group: 'Anthropic'
+    },
+    {
+      id: 'claude-3-haiku-20240307',
+      provider: 'o3',
+      name: 'claude-3-haiku-20240307',
+      group: 'Anthropic'
+    },
+    {
+      id: 'claude-3-5-sonnet-20240620',
+      provider: 'o3',
+      name: 'claude-3-5-sonnet-20240620',
+      group: 'Anthropic'
+    },
+    {
+      id: 'deepseek-ai/Deepseek-R1',
+      provider: 'o3',
+      name: 'DeepSeek R1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-reasoner',
+      provider: 'o3',
+      name: 'deepseek-reasoner',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-chat',
+      provider: 'o3',
+      name: 'deepseek-chat',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-ai/DeepSeek-V3',
+      provider: 'o3',
+      name: 'DeepSeek V3',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'text-embedding-3-small',
+      provider: 'o3',
+      name: 'text-embedding-3-small',
+      group: '嵌入模型'
+    },
+    {
+      id: 'text-embedding-3-small',
+      provider: 'o3',
+      name: 'text-embedding-3-small',
+      group: '嵌入模型'
+    },
+    {
+      id: 'text-embedding-ada-002',
+      provider: 'o3',
+      name: 'text-embedding-ada-002',
+      group: '嵌入模型'
+    },
+    {
+      id: 'text-embedding-v2',
+      provider: 'o3',
+      name: 'text-embedding-v2',
+      group: '嵌入模型'
+    },
+    {
+      id: 'Doubao-embedding',
+      provider: 'o3',
+      name: 'Doubao-embedding',
+      group: '嵌入模型'
+    },
+    {
+      id: 'Doubao-embedding-large',
+      provider: 'o3',
+      name: 'Doubao-embedding-large',
+      group: '嵌入模型'
+    }
+  ],
   ollama: [],
+  lmstudio: [],
   silicon: [
     {
       id: 'deepseek-ai/DeepSeek-R1',
@@ -345,7 +510,70 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       group: 'BAAI'
     }
   ],
+  ppio: [
+    {
+      id: 'deepseek/deepseek-r1/community',
+      name: 'DeepSeek: DeepSeek R1 (Community)',
+      provider: 'ppio',
+      group: 'deepseek'
+    },
+    {
+      id: 'deepseek/deepseek-v3/community',
+      name: 'DeepSeek: DeepSeek V3 (Community)',
+      provider: 'ppio',
+      group: 'deepseek'
+    },
+    {
+      id: 'deepseek/deepseek-r1',
+      provider: 'ppio',
+      name: 'DeepSeek R1',
+      group: 'deepseek'
+    },
+    {
+      id: 'deepseek/deepseek-v3',
+      provider: 'ppio',
+      name: 'DeepSeek V3',
+      group: 'deepseek'
+    },
+    {
+      id: 'qwen/qwen-2.5-72b-instruct',
+      provider: 'ppio',
+      name: 'Qwen2.5-72B-Instruct',
+      group: 'qwen'
+    },
+    {
+      id: 'qwen/qwen2.5-32b-instruct',
+      provider: 'ppio',
+      name: 'Qwen2.5-32B-Instruct',
+      group: 'qwen'
+    },
+    {
+      id: 'meta-llama/llama-3.1-70b-instruct',
+      provider: 'ppio',
+      name: 'Llama-3.1-70B-Instruct',
+      group: 'meta-llama'
+    },
+    {
+      id: 'meta-llama/llama-3.1-8b-instruct',
+      provider: 'ppio',
+      name: 'Llama-3.1-8B-Instruct',
+      group: 'meta-llama'
+    },
+    {
+      id: '01-ai/yi-1.5-34b-chat',
+      provider: 'ppio',
+      name: 'Yi-1.5-34B-Chat',
+      group: '01-ai'
+    },
+    {
+      id: '01-ai/yi-1.5-9b-chat',
+      provider: 'ppio',
+      name: 'Yi-1.5-9B-Chat',
+      group: '01-ai'
+    }
+  ],
   openai: [
+    { id: 'gpt-4.5-preview', provider: 'openai', name: ' gpt-4.5-preview', group: 'gpt-4.5' },
     { id: 'gpt-4o', provider: 'openai', name: ' GPT-4o', group: 'GPT 4o' },
     { id: 'gpt-4o-mini', provider: 'openai', name: ' GPT-4o-mini', group: 'GPT 4o' },
     { id: 'o1-mini', provider: 'openai', name: ' o1-mini', group: 'o1' },
@@ -373,29 +601,53 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       group: 'Gemini 1.5'
     },
     {
+      id: 'gemini-1.5-flash-8b',
+      provider: 'gemini',
+      name: 'Gemini 1.5 Flash (8B)',
+      group: 'Gemini 1.5'
+    },
+    {
       id: 'gemini-1.5-pro',
       name: 'Gemini 1.5 Pro',
       provider: 'gemini',
-      group: 'gemini-1.5'
+      group: 'Gemini 1.5'
+    },
+    {
+      id: 'gemini-2.0-flash',
+      provider: 'gemini',
+      name: 'Gemini 2.0 Flash',
+      group: 'Gemini 2.0'
     }
   ],
   anthropic: [
     {
-      id: 'claude-3-5-sonnet-latest',
+      id: 'claude-3-7-sonnet-20250219',
+      provider: 'anthropic',
+      name: 'Claude 3.7 Sonnet',
+      group: 'Claude 3.7'
+    },
+    {
+      id: 'claude-3-5-sonnet-20241022',
       provider: 'anthropic',
       name: 'Claude 3.5 Sonnet',
       group: 'Claude 3.5'
     },
     {
-      id: 'claude-3-opus-latest',
+      id: 'claude-3-5-haiku-20241022',
       provider: 'anthropic',
-      name: 'Claude 3 Opus',
-      group: 'Claude 3'
+      name: 'Claude 3.5 Haiku',
+      group: 'Claude 3.5'
     },
     {
-      id: 'claude-3-sonnet-20240229',
+      id: 'claude-3-5-sonnet-20240620',
       provider: 'anthropic',
-      name: 'Claude 3 Sonnet',
+      name: 'Claude 3.5 Sonnet (Legacy)',
+      group: 'Claude 3.5'
+    },
+    {
+      id: 'claude-3-opus-20240229',
+      provider: 'anthropic',
+      name: 'Claude 3 Opus',
       group: 'Claude 3'
     },
     {
@@ -403,6 +655,152 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       provider: 'anthropic',
       name: 'Claude 3 Haiku',
       group: 'Claude 3'
+    }
+  ],
+  'gitee-ai': [
+    {
+      id: 'DeepSeek-R1-Distill-Qwen-32B',
+      name: 'DeepSeek-R1-Distill-Qwen-32B',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'DeepSeek-R1-Distill-Qwen-1.5B',
+      name: 'DeepSeek-R1-Distill-Qwen-1.5B',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'DeepSeek-R1-Distill-Qwen-14B',
+      name: 'DeepSeek-R1-Distill-Qwen-14B',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'DeepSeek-R1-Distill-Qwen-7B',
+      name: 'DeepSeek-R1-Distill-Qwen-7B',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'DeepSeek-V3',
+      name: 'DeepSeek-V3',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'DeepSeek-R1',
+      name: 'DeepSeek-R1',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-coder-33B-instruct',
+      name: 'deepseek-coder-33B-instruct',
+      provider: 'gitee-ai',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'Qwen2.5-72B-Instruct',
+      name: 'Qwen2.5-72B-Instruct',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen2.5-14B-Instruct',
+      name: 'Qwen2.5-14B-Instruct',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen2-7B-Instruct',
+      name: 'Qwen2-7B-Instruct',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen2.5-32B-Instruct',
+      name: 'Qwen2.5-32B-Instruct',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen2-72B-Instruct',
+      name: 'Qwen2-72B-Instruct',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen2-VL-72B',
+      name: 'Qwen2-VL-72B',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'QwQ-32B-Preview',
+      name: 'QwQ-32B-Preview',
+      provider: 'gitee-ai',
+      group: 'Qwen'
+    },
+    {
+      id: 'Yi-34B-Chat',
+      name: 'Yi-34B-Chat',
+      provider: 'gitee-ai',
+      group: '01-ai'
+    },
+    {
+      id: 'glm-4-9b-chat',
+      name: 'glm-4-9b-chat',
+      provider: 'gitee-ai',
+      group: 'THUDM'
+    },
+    {
+      id: 'codegeex4-all-9b',
+      name: 'codegeex4-all-9b',
+      provider: 'gitee-ai',
+      group: 'THUDM'
+    },
+    {
+      id: 'InternVL2-8B',
+      name: 'InternVL2-8B',
+      provider: 'gitee-ai',
+      group: 'OpenGVLab'
+    },
+    {
+      id: 'InternVL2.5-26B',
+      name: 'InternVL2.5-26B',
+      provider: 'gitee-ai',
+      group: 'OpenGVLab'
+    },
+    {
+      id: 'InternVL2.5-78B',
+      name: 'InternVL2.5-78B',
+      provider: 'gitee-ai',
+      group: 'OpenGVLab'
+    },
+    {
+      id: 'bge-large-zh-v1.5',
+      name: 'bge-large-zh-v1.5',
+      provider: 'gitee-ai',
+      group: 'BAAI'
+    },
+    {
+      id: 'bge-small-zh-v1.5',
+      name: 'bge-small-zh-v1.5',
+      provider: 'gitee-ai',
+      group: 'BAAI'
+    },
+    {
+      id: 'bge-m3',
+      name: 'bge-m3',
+      provider: 'gitee-ai',
+      group: 'BAAI'
+    },
+    {
+      id: 'bce-embedding-base_v1',
+      name: 'bce-embedding-base_v1',
+      provider: 'gitee-ai',
+      group: 'netease-youdao'
     }
   ],
   deepseek: [
@@ -447,6 +845,42 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
   ],
   ocoolai: [
     {
+      id: 'deepseek-chat',
+      provider: 'ocoolai',
+      name: 'deepseek-chat',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-reasoner',
+      provider: 'ocoolai',
+      name: 'deepseek-reasoner',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-ai/DeepSeek-R1',
+      provider: 'ocoolai',
+      name: 'deepseek-ai/DeepSeek-R1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'HiSpeed/DeepSeek-R1',
+      provider: 'ocoolai',
+      name: 'HiSpeed/DeepSeek-R1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'ocoolAI/DeepSeek-R1',
+      provider: 'ocoolai',
+      name: 'ocoolAI/DeepSeek-R1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'Azure/DeepSeek-R1',
+      provider: 'ocoolai',
+      name: 'Azure/DeepSeek-R1',
+      group: 'DeepSeek'
+    },
+    {
       id: 'gpt-4o',
       provider: 'ocoolai',
       name: 'gpt-4o',
@@ -456,12 +890,6 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       id: 'gpt-4o-all',
       provider: 'ocoolai',
       name: 'gpt-4o-all',
-      group: 'OpenAI'
-    },
-    {
-      id: 'gpt-4-all',
-      provider: 'ocoolai',
-      name: 'gpt-4-all',
       group: 'OpenAI'
     },
     {
@@ -477,12 +905,6 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       group: 'OpenAI'
     },
     {
-      id: 'gpt-4-turbo',
-      provider: 'ocoolai',
-      name: 'gpt-4-turbo',
-      group: 'OpenAI'
-    },
-    {
       id: 'o1-preview',
       provider: 'ocoolai',
       name: 'o1-preview',
@@ -495,33 +917,15 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       group: 'OpenAI'
     },
     {
-      id: 'gpt-3.5-turbo',
-      provider: 'ocoolai',
-      name: 'gpt-3.5-turbo',
-      group: 'OpenAI'
-    },
-    {
       id: 'claude-3-5-sonnet-20240620',
       provider: 'ocoolai',
       name: 'claude-3-5-sonnet-20240620',
       group: 'Anthropic'
     },
     {
-      id: 'claude-3-opus-20240229',
+      id: 'claude-3-5-haiku-20241022',
       provider: 'ocoolai',
-      name: 'claude-3-opus-20240229',
-      group: 'Anthropic'
-    },
-    {
-      id: 'claude-3-sonnet-20240229',
-      provider: 'ocoolai',
-      name: 'claude-3-sonnet-20240229',
-      group: 'Anthropic'
-    },
-    {
-      id: 'claude-3-haiku-20240307',
-      provider: 'ocoolai',
-      name: 'claude-3-haiku-20240307',
+      name: 'claude-3-5-haiku-20241022',
       group: 'Anthropic'
     },
     {
@@ -565,6 +969,30 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       provider: 'ocoolai',
       name: 'gemma-2-9b-it',
       group: 'Gemma'
+    },
+    {
+      id: 'Doubao-embedding',
+      provider: 'ocoolai',
+      name: 'Doubao-embedding',
+      group: 'Doubao'
+    },
+    {
+      id: 'text-embedding-3-large',
+      provider: 'ocoolai',
+      name: 'text-embedding-3-large',
+      group: 'Embedding'
+    },
+    {
+      id: 'text-embedding-3-small',
+      provider: 'ocoolai',
+      name: 'text-embedding-3-small',
+      group: 'Embedding'
+    },
+    {
+      id: 'text-embedding-v2',
+      provider: 'ocoolai',
+      name: 'text-embedding-v2',
+      group: 'Embedding'
     }
   ],
   github: [
@@ -576,10 +1004,8 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
     }
   ],
   yi: [
-    { id: 'yi-lightning', name: 'yi-lightning', provider: 'yi', group: 'yi-lightning', owned_by: '01.ai' },
-    { id: 'yi-medium', name: 'yi-medium', provider: 'yi', group: 'yi-medium', owned_by: '01.ai' },
-    { id: 'yi-large', name: 'yi-large', provider: 'yi', group: 'yi-large', owned_by: '01.ai' },
-    { id: 'yi-vision', name: 'yi-vision', provider: 'yi', group: 'yi-vision', owned_by: '01.ai' }
+    { id: 'yi-lightning', name: 'Yi Lightning', provider: 'yi', group: 'yi-lightning', owned_by: '01.ai' },
+    { id: 'yi-vision-v2', name: 'Yi Vision v2', provider: 'yi', group: 'yi-vision', owned_by: '01.ai' }
   ],
   zhipu: [
     {
@@ -684,19 +1110,39 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       group: 'Baichuan3'
     }
   ],
+  modelscope: [
+    {
+      id: 'Qwen/Qwen2.5-72B-Instruct',
+      name: 'Qwen/Qwen2.5-72B-Instruct',
+      provider: 'modelscope',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen/Qwen2.5-VL-72B-Instruct',
+      name: 'Qwen/Qwen2.5-VL-72B-Instruct',
+      provider: 'modelscope',
+      group: 'Qwen'
+    },
+    {
+      id: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+      name: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+      provider: 'modelscope',
+      group: 'Qwen'
+    },
+    {
+      id: 'deepseek-ai/DeepSeek-R1',
+      name: 'deepseek-ai/DeepSeek-R1',
+      provider: 'modelscope',
+      group: 'deepseek-ai'
+    },
+    {
+      id: 'deepseek-ai/DeepSeek-V3',
+      name: 'deepseek-ai/DeepSeek-V3',
+      provider: 'modelscope',
+      group: 'deepseek-ai'
+    }
+  ],
   bailian: [
-    {
-      id: 'deepseek-r1',
-      provider: 'dashscope',
-      name: 'DeepSeek R1',
-      group: 'DeepSeek'
-    },
-    {
-      id: 'deepseek-v3',
-      provider: 'dashscope',
-      name: 'DeepSeek V3',
-      group: 'DeepSeek'
-    },
     { id: 'qwen-vl-plus', name: 'qwen-vl-plus', provider: 'dashscope', group: 'qwen-vl', owned_by: 'system' },
     { id: 'qwen-coder-plus', name: 'qwen-coder-plus', provider: 'dashscope', group: 'qwen-coder', owned_by: 'system' },
     { id: 'qwen-turbo', name: 'qwen-turbo', provider: 'dashscope', group: 'qwen-turbo', owned_by: 'system' },
@@ -794,14 +1240,56 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
     {
       id: 'pixtral-12b-2409',
       provider: 'mistral',
-      name: 'Pixtral-12B-2409',
+      name: 'Pixtral 12B [Free]',
       group: 'Pixtral'
+    },
+    {
+      id: 'pixtral-large-latest',
+      provider: 'mistral',
+      name: 'Pixtral Large',
+      group: 'Pixtral'
+    },
+    {
+      id: 'ministral-3b-latest',
+      provider: 'mistral',
+      name: 'Mistral 3B [Free]',
+      group: 'Mistral Mini'
+    },
+    {
+      id: 'ministral-8b-latest',
+      provider: 'mistral',
+      name: 'Mistral 8B [Free]',
+      group: 'Mistral Mini'
+    },
+    {
+      id: 'codestral-latest',
+      provider: 'mistral',
+      name: 'Mistral Codestral',
+      group: 'Mistral Code'
+    },
+    {
+      id: 'mistral-large-latest',
+      provider: 'mistral',
+      name: 'Mistral Large',
+      group: 'Mistral Chat'
+    },
+    {
+      id: 'mistral-small-latest',
+      provider: 'mistral',
+      name: 'Mistral Small',
+      group: 'Mistral Chat'
     },
     {
       id: 'open-mistral-nemo',
       provider: 'mistral',
-      name: 'Open-Mistral-Nemo',
-      group: 'Mistral'
+      name: 'Mistral Nemo',
+      group: 'Mistral Chat'
+    },
+    {
+      id: 'mistral-embed',
+      provider: 'mistral',
+      name: 'Mistral Embedding',
+      group: 'Mistral Embed'
     }
   ],
   jina: [
@@ -930,6 +1418,18 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       provider: 'hunyuan',
       name: 'hunyuan-turbo',
       group: 'Hunyuan'
+    },
+    {
+      id: 'hunyuan-turbos-latest',
+      provider: 'hunyuan',
+      name: 'hunyuan-turbos-latest',
+      group: 'Hunyuan'
+    },
+    {
+      id: 'hunyuan-embedding',
+      provider: 'hunyuan',
+      name: 'hunyuan-embedding',
+      group: 'Embedding'
     }
   ],
   nvidia: [
@@ -1053,6 +1553,221 @@ export const SYSTEM_MODELS: Record<string, Model[]> = {
       name: 'BGE Large EN',
       group: 'Embedding'
     }
+  ],
+  dmxapi: [
+    {
+      id: 'Qwen/Qwen2.5-7B-Instruct',
+      provider: 'dmxapi',
+      name: 'Qwen/Qwen2.5-7B-Instruct',
+      group: '免费模型'
+    },
+    {
+      id: 'ERNIE-Speed-128K',
+      provider: 'dmxapi',
+      name: 'ERNIE-Speed-128K',
+      group: '免费模型'
+    },
+    {
+      id: 'THUDM/glm-4-9b-chat',
+      provider: 'dmxapi',
+      name: 'THUDM/glm-4-9b-chat',
+      group: '免费模型'
+    },
+    {
+      id: 'glm-4-flash',
+      provider: 'dmxapi',
+      name: 'glm-4-flash',
+      group: '免费模型'
+    },
+    {
+      id: 'hunyuan-lite',
+      provider: 'dmxapi',
+      name: 'hunyuan-lite',
+      group: '免费模型'
+    },
+    {
+      id: 'gpt-4o',
+      provider: 'dmxapi',
+      name: 'gpt-4o',
+      group: 'OpenAI'
+    },
+    {
+      id: 'gpt-4o-mini',
+      provider: 'dmxapi',
+      name: 'gpt-4o-mini',
+      group: 'OpenAI'
+    },
+    {
+      id: 'DMXAPI-DeepSeek-R1',
+      provider: 'dmxapi',
+      name: 'DMXAPI-DeepSeek-R1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'DMXAPI-DeepSeek-V3',
+      provider: 'dmxapi',
+      name: 'DMXAPI-DeepSeek-V3',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'claude-3-5-sonnet-20241022',
+      provider: 'dmxapi',
+      name: 'claude-3-5-sonnet-20241022',
+      group: 'Claude'
+    },
+    {
+      id: 'gemini-2.0-flash',
+      provider: 'dmxapi',
+      name: 'gemini-2.0-flash',
+      group: 'Gemini'
+    }
+  ],
+  perplexity: [
+    {
+      id: 'sonar-reasoning-pro',
+      provider: 'perplexity',
+      name: 'sonar-reasoning-pro',
+      group: 'Sonar'
+    },
+    {
+      id: 'sonar-reasoning',
+      provider: 'perplexity',
+      name: 'sonar-reasoning',
+      group: 'Sonar'
+    },
+    {
+      id: 'sonar-pro',
+      provider: 'perplexity',
+      name: 'sonar-pro',
+      group: 'Sonar'
+    },
+    {
+      id: 'sonar',
+      provider: 'perplexity',
+      name: 'sonar',
+      group: 'Sonar'
+    }
+  ],
+  infini: [
+    {
+      id: 'deepseek-r1',
+      provider: 'infini',
+      name: 'deepseek-r1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-r1-distill-qwen-32b',
+      provider: 'infini',
+      name: 'deepseek-r1-distill-qwen-32b',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-v3',
+      provider: 'infini',
+      name: 'deepseek-v3',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'qwen2.5-72b-instruct',
+      provider: 'infini',
+      name: 'qwen2.5-72b-instruct',
+      group: 'Qwen'
+    },
+    {
+      id: 'qwen2.5-32b-instruct',
+      provider: 'infini',
+      name: 'qwen2.5-32b-instruct',
+      group: 'Qwen'
+    },
+    {
+      id: 'qwen2.5-14b-instruct',
+      provider: 'infini',
+      name: 'qwen2.5-14b-instruct',
+      group: 'Qwen'
+    },
+    {
+      id: 'qwen2.5-7b-instruct',
+      provider: 'infini',
+      name: 'qwen2.5-7b-instruct',
+      group: 'Qwen'
+    },
+    {
+      id: 'qwen2-72b-instruct',
+      provider: 'infini',
+      name: 'qwen2-72b-instruct',
+      group: 'Qwen'
+    },
+    {
+      id: 'qwq-32b-preview',
+      provider: 'infini',
+      name: 'qwq-32b-preview',
+      group: 'Qwen'
+    },
+    {
+      id: 'qwen2.5-coder-32b-instruct',
+      provider: 'infini',
+      name: 'qwen2.5-coder-32b-instruct',
+      group: 'Qwen'
+    },
+    {
+      id: 'llama-3.3-70b-instruct',
+      provider: 'infini',
+      name: 'llama-3.3-70b-instruct',
+      group: 'Llama'
+    },
+    {
+      id: 'bge-m3',
+      provider: 'infini',
+      name: 'bge-m3',
+      group: 'BAAI'
+    },
+    {
+      id: 'gemma-2-27b-it',
+      provider: 'infini',
+      name: 'gemma-2-27b-it',
+      group: 'Gemma'
+    },
+    {
+      id: 'jina-embeddings-v2-base-zh',
+      provider: 'infini',
+      name: 'jina-embeddings-v2-base-zh',
+      group: 'Jina'
+    },
+    {
+      id: 'jina-embeddings-v2-base-code',
+      provider: 'infini',
+      name: 'jina-embeddings-v2-base-code',
+      group: 'Jina'
+    }
+  ],
+  //加前缀是为了展示图标
+  xirang: [
+    {
+      id: 'xirang-4bd107bff85941239e27b1509eccfe98',
+      provider: 'xirang',
+      name: 'DeepSeek-R1',
+      group: 'xirang'
+    },
+    {
+      id: 'xirang-9dc913a037774fc0b248376905c85da5',
+      provider: 'xirang',
+      name: 'DeepSeek-V3',
+      group: 'xirang'
+    }
+  ],
+  'tencent-cloud-ti': [
+    {
+      id: 'deepseek-r1',
+      provider: 'tencent-cloud-ti',
+      name: 'DeepSeek R1',
+      group: 'DeepSeek'
+    },
+    {
+      id: 'deepseek-v3',
+      provider: 'tencent-cloud-ti',
+      name: 'DeepSeek V3',
+      group: 'DeepSeek'
+    }
   ]
 }
 
@@ -1143,6 +1858,10 @@ export function isEmbeddingModel(model: Model): boolean {
     return false
   }
 
+  if (model.provider === 'doubao') {
+    return EMBEDDING_REGEX.test(model.name)
+  }
+
   return EMBEDDING_REGEX.test(model.id) || model.type?.includes('embedding') || false
 }
 
@@ -1151,12 +1870,28 @@ export function isVisionModel(model: Model): boolean {
     return false
   }
 
+  if (model.provider === 'doubao') {
+    return VISION_REGEX.test(model.name) || model.type?.includes('vision') || false
+  }
+
   return VISION_REGEX.test(model.id) || model.type?.includes('vision') || false
 }
 
-export function isReasoningModel(model: Model): boolean {
+export function isOpenAIoSeries(model: Model): boolean {
+  return ['o1', 'o1-2024-12-17'].includes(model.id) || model.id.includes('o3')
+}
+
+export function isReasoningModel(model?: Model): boolean {
   if (!model) {
     return false
+  }
+
+  if (model.provider === 'doubao') {
+    return REASONING_REGEX.test(model.name) || model.type?.includes('reasoning') || false
+  }
+
+  if (model.id.includes('claude-3-7-sonnet') || model.id.includes('claude-3.7-sonnet') || isOpenAIoSeries(model)) {
+    return true
   }
 
   return REASONING_REGEX.test(model.id) || model.type?.includes('reasoning') || false
@@ -1178,6 +1913,12 @@ export function isWebSearchModel(model: Model): boolean {
   const provider = getProviderByModel(model)
 
   if (!provider) {
+    return false
+  }
+
+  const isEmbedding = isEmbeddingModel(model)
+
+  if (isEmbedding) {
     return false
   }
 
@@ -1203,11 +1944,22 @@ export function isWebSearchModel(model: Model): boolean {
   }
 
   if (provider.id === 'aihubmix') {
-    return model?.id === 'gemini-2.0-flash-exp-search'
+    const models = ['gemini-2.0-flash-search', 'gemini-2.0-flash-exp-search', 'gemini-2.0-pro-exp-02-05-search']
+    return models.includes(model?.id)
   }
 
   if (provider.id === 'zhipu') {
     return model?.id?.startsWith('glm-4-')
+  }
+
+  if (provider.id === 'dashscope') {
+    const models = ['qwen-turbo', 'qwen-max', 'qwen-plus']
+    // matches id like qwen-max-0919, qwen-max-latest
+    return models.some((i) => model.id.startsWith(i))
+  }
+
+  if (provider.id === 'openrouter') {
+    return true
   }
 
   return false
@@ -1220,6 +1972,21 @@ export function getOpenAIWebSearchParams(assistant: Assistant, model: Model): Re
 
       if (model.provider === 'hunyuan') {
         return { enable_enhancement: true }
+      }
+
+      if (model.provider === 'dashscope') {
+        return {
+          enable_search: true,
+          search_options: {
+            forced_search: true
+          }
+        }
+      }
+
+      if (model.provider === 'openrouter') {
+        return {
+          plugins: [{ id: 'web' }]
+        }
       }
 
       return {

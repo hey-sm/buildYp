@@ -22,6 +22,7 @@ interface FormData {
   documentCount?: number
   chunkSize?: number
   chunkOverlap?: number
+  threshold?: number
 }
 
 interface Props extends ShowParams {
@@ -66,7 +67,8 @@ const PopupContainer: React.FC<Props> = ({ base: _base, resolve }) => {
         name: values.name,
         documentCount: values.documentCount || DEFAULT_KNOWLEDGE_DOCUMENT_COUNT,
         chunkSize: values.chunkSize,
-        chunkOverlap: values.chunkOverlap
+        chunkOverlap: values.chunkOverlap,
+        threshold: values.threshold ?? undefined
       }
       updateKnowledgeBase(newBase)
       setOpen(false)
@@ -121,9 +123,9 @@ const PopupContainer: React.FC<Props> = ({ base: _base, resolve }) => {
           <Slider
             style={{ width: '100%' }}
             min={1}
-            max={15}
+            max={30}
             step={1}
-            marks={{ 1: '1', 6: t('knowledge.document_count_default'), 15: '15' }}
+            marks={{ 1: '1', 6: t('knowledge.document_count_default'), 30: '30' }}
           />
         </Form.Item>
 
@@ -173,6 +175,23 @@ const PopupContainer: React.FC<Props> = ({ base: _base, resolve }) => {
             defaultValue={base.chunkOverlap}
             placeholder={t('knowledge.chunk_overlap_placeholder')}
           />
+        </Form.Item>
+        <Form.Item
+          name="threshold"
+          label={t('knowledge.threshold')}
+          tooltip={{ title: t('knowledge.threshold_tooltip') }}
+          initialValue={base.threshold}
+          rules={[
+            {
+              validator(_, value) {
+                if (value && (value > 1 || value < 0)) {
+                  return Promise.reject(new Error(t('knowledge.threshold_too_large_or_small')))
+                }
+                return Promise.resolve()
+              }
+            }
+          ]}>
+          <InputNumber placeholder={t('knowledge.threshold_placeholder')} step={0.1} style={{ width: '100%' }} />
         </Form.Item>
       </Form>
       <Alert message={t('knowledge.chunk_size_change_warning')} type="warning" showIcon icon={<WarningOutlined />} />

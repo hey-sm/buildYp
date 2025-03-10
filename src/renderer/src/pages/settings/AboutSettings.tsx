@@ -1,5 +1,5 @@
-import { GithubOutlined, XOutlined } from '@ant-design/icons'
-import { FileProtectOutlined, GlobalOutlined, MailOutlined, SendOutlined, SoundOutlined } from '@ant-design/icons'
+import { GithubOutlined } from '@ant-design/icons'
+import { FileProtectOutlined, GlobalOutlined, MailOutlined, SoundOutlined } from '@ant-design/icons'
 import IndicatorLight from '@renderer/components/IndicatorLight'
 import { HStack } from '@renderer/components/Layout'
 import MinApp from '@renderer/components/MinApp'
@@ -33,6 +33,11 @@ const AboutSettings: FC = () => {
   const onCheckUpdate = debounce(
     async () => {
       if (update.checking || update.downloading) {
+        return
+      }
+
+      if (update.downloaded) {
+        window.api.showUpdateDialog()
         return
       }
 
@@ -202,28 +207,6 @@ const AboutSettings: FC = () => {
             <MailOutlined /> {t('settings.about.contact.title')}
           </SettingRowTitle>
           <Button onClick={mailto}>{t('settings.about.contact.button')}</Button>
-        </SettingRow>
-      </SettingGroup>
-      <SettingGroup theme={theme}>
-        <SettingTitle>{t('settings.about.social.title')}</SettingTitle>
-        <SettingDivider />
-        <SettingRow>
-          <SettingRowTitle>
-            <XOutlined />X
-          </SettingRowTitle>
-          <Button onClick={() => onOpenWebsite('https://x.com/kangfenmao')}>
-            {t('settings.about.website.button')}
-          </Button>
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow>
-          <SettingRowTitle>
-            <SendOutlined />
-            Telegram
-          </SettingRowTitle>
-          <Button onClick={() => onOpenWebsite('https://t.me/CherryStudioAI')}>
-            {t('settings.about.website.button')}
-          </Button>
         </SettingRow>
       </SettingGroup>
     </SettingContainer>

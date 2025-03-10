@@ -1,4 +1,5 @@
 import {
+  CopyOutlined,
   DeleteOutlined,
   EditOutlined,
   FileTextOutlined,
@@ -10,14 +11,16 @@ import {
   SearchOutlined,
   SettingOutlined
 } from '@ant-design/icons'
+import Ellipsis from '@renderer/components/Ellipsis'
 import PromptPopup from '@renderer/components/Popups/PromptPopup'
 import TextEditPopup from '@renderer/components/Popups/TextEditPopup'
 import Scrollbar from '@renderer/components/Scrollbar'
 import { useKnowledge } from '@renderer/hooks/useKnowledge'
 import FileManager from '@renderer/services/FileManager'
 import { getProviderName } from '@renderer/services/ProviderService'
-import { FileType, FileTypes, KnowledgeBase } from '@renderer/types'
-import { Alert, Button, Card, Divider, message, Tag, Typography, Upload } from 'antd'
+import { FileType, FileTypes, KnowledgeBase, KnowledgeItem } from '@renderer/types'
+import { bookExts, documentExts, textExts, thirdPartyApplicationExts } from '@shared/config/constant'
+import { Alert, Button, Card, Divider, Dropdown, message, Tag, Tooltip, Typography, Upload } from 'antd'
 import { FC } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -33,10 +36,10 @@ interface KnowledgeContentProps {
   selectedBase: KnowledgeBase
 }
 
-const fileTypes = ['.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.md', '.html']
-
+const fileTypes = [...bookExts, ...thirdPartyApplicationExts, ...documentExts, ...textExts]
 const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
   const { t } = useTranslation()
+
   const {
     base,
     noteItems,
@@ -51,8 +54,10 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
     addSitemap,
     removeItem,
     getProcessingStatus,
+    getDirectoryProcessingPercent,
     addNote,
-    addDirectory
+    addDirectory,
+    updateItem
   } = useKnowledge(selectedBase.id || '')
 
   const providerName = getProviderName(base?.model.provider || '')
@@ -61,6 +66,8 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
   if (!base) {
     return null
   }
+
+  const getProgressingPercentForItem = (itemId: string) => getDirectoryProcessingPercent(itemId)
 
   const handleAddFile = () => {
     if (disabled) {
@@ -83,17 +90,19 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
     }
 
     if (files) {
-      const _files: FileType[] = files.map((file) => ({
-        id: file.name,
-        name: file.name,
-        path: file.path,
-        size: file.size,
-        ext: `.${file.name.split('.').pop()}`,
-        count: 1,
-        origin_name: file.name,
-        type: file.type as FileTypes,
-        created_at: new Date()
-      }))
+      const _files: FileType[] = files
+        .map((file) => ({
+          id: file.name,
+          name: file.name,
+          path: file.path,
+          size: file.size,
+          ext: `.${file.name.split('.').pop()}`,
+          count: 1,
+          origin_name: file.name,
+          type: file.type as FileTypes,
+          created_at: new Date().toISOString()
+        }))
+        .filter(({ ext }) => fileTypes.includes(ext))
       console.debug('[KnowledgeContent] Uploading files:', _files, files)
       const uploadedFiles = await FileManager.uploadFiles(_files)
       addFiles(uploadedFiles)
@@ -105,26 +114,32 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
       return
     }
 
-    const url = await PromptPopup.show({
+    const urlInput = await PromptPopup.show({
       title: t('knowledge.add_url'),
       message: '',
       inputPlaceholder: t('knowledge.url_placeholder'),
       inputProps: {
-        maxLength: 1000,
-        rows: 1
+        rows: 10,
+        onPressEnter: () => {}
       }
     })
 
-    if (url) {
-      try {
-        new URL(url)
-        if (urlItems.find((item) => item.content === url)) {
-          message.success(t('knowledge.url_added'))
-          return
+    if (urlInput) {
+      // Split input by newlines and filter out empty lines
+      const urls = urlInput.split('\n').filter((url) => url.trim())
+
+      for (const url of urls) {
+        try {
+          new URL(url.trim())
+          if (!urlItems.find((item) => item.content === url.trim())) {
+            addUrl(url.trim())
+          } else {
+            message.success(t('knowledge.url_added'))
+          }
+        } catch (e) {
+          // Skip invalid URLs silently
+          continue
         }
-        addUrl(url)
-      } catch (e) {
-        console.error('Invalid URL:', url)
       }
     }
   }
@@ -186,6 +201,31 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
     path && addDirectory(path)
   }
 
+  const handleEditRemark = async (item: KnowledgeItem) => {
+    if (disabled) {
+      return
+    }
+
+    const editedRemark: string | undefined = await PromptPopup.show({
+      title: t('knowledge.edit_remark'),
+      message: '',
+      inputPlaceholder: t('knowledge.edit_remark_placeholder'),
+      defaultValue: item.remark || '',
+      inputProps: {
+        maxLength: 100,
+        rows: 1
+      }
+    })
+
+    if (editedRemark !== undefined && editedRemark !== null) {
+      updateItem({
+        ...item,
+        remark: editedRemark,
+        updated_at: Date.now()
+      })
+    }
+  }
+
   return (
     <MainContent>
       {!base?.version && (
@@ -209,25 +249,29 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
           style={{ marginTop: 10, background: 'transparent' }}>
           <p className="ant-upload-text">{t('knowledge.drag_file')}</p>
           <p className="ant-upload-hint">
-            {t('knowledge.file_hint', { file_types: fileTypes.join(', ').replaceAll('.', '') })}
+            {t('knowledge.file_hint', { file_types: 'TXT, MD, HTML, PDF, DOCX, PPTX, XLSX, EPUB...' })}
           </p>
         </Dragger>
       </FileSection>
 
       <FileListSection>
-        {fileItems.map((item) => {
+        {fileItems.reverse().map((item) => {
           const file = item.content as FileType
           return (
             <ItemCard key={item.id}>
               <ItemContent>
                 <ItemInfo>
                   <FileIcon />
-                  <ClickableSpan onClick={() => window.api.file.openPath(file.path)}>{file.origin_name}</ClickableSpan>
+                  <ClickableSpan onClick={() => window.api.file.openPath(file.path)}>
+                    <Ellipsis>
+                      <Tooltip title={file.origin_name}>{file.origin_name}</Tooltip>
+                    </Ellipsis>
+                  </ClickableSpan>
                 </ItemInfo>
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} type="file" />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -245,19 +289,27 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
           </Button>
         </TitleWrapper>
         <FlexColumn>
-          {directoryItems.map((item) => (
+          {directoryItems.reverse().map((item) => (
             <ItemCard key={item.id}>
               <ItemContent>
                 <ItemInfo>
                   <FolderOutlined />
                   <ClickableSpan onClick={() => window.api.file.openPath(item.content as string)}>
-                    {item.content as string}
+                    <Ellipsis>
+                      <Tooltip title={item.content as string}>{item.content as string}</Tooltip>
+                    </Ellipsis>
                   </ClickableSpan>
                 </ItemInfo>
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon
+                      sourceId={item.id}
+                      base={base}
+                      getProcessingStatus={getProcessingStatus}
+                      getProcessingPercent={getProgressingPercentForItem}
+                      type="directory"
+                    />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -275,19 +327,47 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
           </Button>
         </TitleWrapper>
         <FlexColumn>
-          {urlItems.map((item) => (
+          {urlItems.reverse().map((item) => (
             <ItemCard key={item.id}>
               <ItemContent>
                 <ItemInfo>
                   <LinkOutlined />
-                  <a href={item.content as string} target="_blank" rel="noopener noreferrer">
-                    {item.content as string}
-                  </a>
+                  <Dropdown
+                    menu={{
+                      items: [
+                        {
+                          key: 'edit',
+                          icon: <EditOutlined />,
+                          label: t('knowledge.edit_remark'),
+                          onClick: () => handleEditRemark(item)
+                        },
+                        {
+                          key: 'copy',
+                          icon: <CopyOutlined />,
+                          label: t('common.copy'),
+                          onClick: () => {
+                            navigator.clipboard.writeText(item.content as string)
+                            message.success(t('message.copied'))
+                          }
+                        }
+                      ]
+                    }}
+                    trigger={['contextMenu']}>
+                    <ClickableSpan>
+                      <Tooltip title={item.content as string}>
+                        <Ellipsis>
+                          <a href={item.content as string} target="_blank" rel="noopener noreferrer">
+                            {item.remark || (item.content as string)}
+                          </a>
+                        </Ellipsis>
+                      </Tooltip>
+                    </ClickableSpan>
+                  </Dropdown>
                 </ItemInfo>
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} type="url" />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -305,19 +385,30 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
           </Button>
         </TitleWrapper>
         <FlexColumn>
-          {sitemapItems.map((item) => (
+          {sitemapItems.reverse().map((item) => (
             <ItemCard key={item.id}>
               <ItemContent>
                 <ItemInfo>
                   <GlobalOutlined />
-                  <a href={item.content as string} target="_blank" rel="noopener noreferrer">
-                    {item.content as string}
-                  </a>
+                  <ClickableSpan>
+                    <Tooltip title={item.content as string}>
+                      <Ellipsis>
+                        <a href={item.content as string} target="_blank" rel="noopener noreferrer">
+                          {item.content as string}
+                        </a>
+                      </Ellipsis>
+                    </Tooltip>
+                  </ClickableSpan>
                 </ItemInfo>
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon
+                      sourceId={item.id}
+                      base={base}
+                      getProcessingStatus={getProcessingStatus}
+                      type="sitemap"
+                    />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -335,7 +426,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
           </Button>
         </TitleWrapper>
         <FlexColumn>
-          {noteItems.map((note) => (
+          {noteItems.reverse().map((note) => (
             <ItemCard key={note.id}>
               <ItemContent>
                 <ItemInfo onClick={() => handleEditNote(note)} style={{ cursor: 'pointer' }}>
@@ -344,7 +435,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <FlexAlignCenter>
                   <Button type="text" onClick={() => handleEditNote(note)} icon={<EditOutlined />} />
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={note.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon sourceId={note.id} base={base} getProcessingStatus={getProcessingStatus} type="note" />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(note)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -447,13 +538,6 @@ const ItemInfo = styled.div`
   align-items: center;
   gap: 8px;
   flex: 1;
-
-  a {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 600px;
-  }
 `
 
 const IndexSection = styled.div`
@@ -487,6 +571,8 @@ const FlexAlignCenter = styled.div`
 
 const ClickableSpan = styled.span`
   cursor: pointer;
+  flex: 1;
+  width: 0;
 `
 
 const FileIcon = styled(FileTextOutlined)`

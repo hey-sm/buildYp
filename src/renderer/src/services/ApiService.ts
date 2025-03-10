@@ -1,9 +1,11 @@
+import { getOpenAIWebSearchParams } from '@renderer/config/models'
 import i18n from '@renderer/i18n'
 import store from '@renderer/store'
 import { setGenerating } from '@renderer/store/runtime'
 import { Assistant, Message, Model, Provider, Suggestion } from '@renderer/types'
-import { formatErrorMessage, formatMessageError } from '@renderer/utils/error'
-import { isEmpty } from 'lodash'
+import { addAbortController } from '@renderer/utils/abortController'
+import { formatMessageError } from '@renderer/utils/error'
+import { cloneDeep, findLast, isEmpty } from 'lodash'
 
 import AiProvider from '../providers/AiProvider'
 import {
@@ -16,6 +18,7 @@ import {
 import { EVENT_NAMES, EventEmitter } from './EventService'
 import { filterMessages, filterUsefulMessages } from './MessagesService'
 import { estimateMessagesUsage } from './TokenService'
+import WebSearchService from './WebSearchService'
 
 export async function fetchChatCompletion({
   message,
@@ -31,33 +34,58 @@ export async function fetchChatCompletion({
   window.keyv.set(EVENT_NAMES.CHAT_COMPLETION_PAUSED, false)
 
   const provider = getAssistantProvider(assistant)
+  const webSearchProvider = WebSearchService.getWebSearchProvider()
   const AI = new AiProvider(provider)
 
   store.dispatch(setGenerating(true))
 
   onResponse({ ...message })
 
-  // Handle paused state
-  let paused = false
-  const timer = setInterval(() => {
-    if (window.keyv.get(EVENT_NAMES.CHAT_COMPLETION_PAUSED)) {
-      paused = true
-      message.status = 'paused'
-      EventEmitter.emit(EVENT_NAMES.RECEIVE_MESSAGE, message)
-      store.dispatch(setGenerating(false))
-      onResponse({ ...message, status: 'paused' })
-      clearInterval(timer)
-    }
-  }, 1000)
+  const pauseFn = (message: Message) => {
+    message.status = 'paused'
+    EventEmitter.emit(EVENT_NAMES.RECEIVE_MESSAGE, message)
+    store.dispatch(setGenerating(false))
+    onResponse({ ...message, status: 'paused' })
+  }
+
+  addAbortController(message.askId ?? message.id, pauseFn.bind(null, message))
 
   try {
     let _messages: Message[] = []
+    let isFirstChunk = true
+
+    // Search web
+    if (WebSearchService.isWebSearchEnabled() && assistant.enableWebSearch && assistant.model) {
+      const webSearchParams = getOpenAIWebSearchParams(assistant, assistant.model)
+
+      if (isEmpty(webSearchParams)) {
+        const lastMessage = findLast(messages, (m) => m.role === 'user')
+        const hasKnowledgeBase = !isEmpty(lastMessage?.knowledgeBaseIds)
+        if (lastMessage) {
+          if (hasKnowledgeBase) {
+            window.message.info({
+              content: i18n.t('message.ignore.knowledge.base'),
+              key: 'knowledge-base-no-match-info'
+            })
+          }
+          onResponse({ ...message, status: 'searching' })
+          const webSearch = await WebSearchService.search(webSearchProvider, lastMessage.content)
+          message.metadata = {
+            ...message.metadata,
+            webSearch: webSearch
+          }
+          window.keyv.set(`web-search-${lastMessage?.id}`, webSearch)
+        }
+      }
+    }
+
+    const allMCPTools = await window.api.mcp.listTools()
 
     await AI.completions({
       messages: filterUsefulMessages(messages),
       assistant,
       onFilterMessages: (messages) => (_messages = messages),
-      onChunk: ({ text, reasoning_content, usage, metrics, search }) => {
+      onChunk: ({ text, reasoning_content, usage, metrics, search, citations, mcpToolResponse }) => {
         message.content = message.content + text || ''
         message.usage = usage
         message.metrics = metrics
@@ -67,11 +95,25 @@ export async function fetchChatCompletion({
         }
 
         if (search) {
-          message.metadata = { groundingMetadata: search }
+          message.metadata = { ...message.metadata, groundingMetadata: search }
+        }
+
+        if (mcpToolResponse) {
+          message.metadata = { ...message.metadata, mcpTools: cloneDeep(mcpToolResponse) }
+        }
+
+        // Handle citations from Perplexity API
+        if (isFirstChunk && citations) {
+          message.metadata = {
+            ...message.metadata,
+            citations
+          }
+          isFirstChunk = false
         }
 
         onResponse({ ...message, status: 'pending' })
-      }
+      },
+      mcpTools: allMCPTools
     })
 
     message.status = 'success'
@@ -81,17 +123,17 @@ export async function fetchChatCompletion({
         assistant,
         messages: [..._messages, message]
       })
+      // Set metrics.completion_tokens
+      if (message.metrics && message?.usage?.completion_tokens) {
+        if (!message.metrics?.completion_tokens) {
+          message.metrics.completion_tokens = message.usage.completion_tokens
+        }
+      }
     }
   } catch (error: any) {
+    console.log('error', error)
     message.status = 'error'
-    message.content = formatErrorMessage(error)
     message.error = formatMessageError(error)
-  }
-
-  timer && clearInterval(timer)
-
-  if (paused) {
-    return message
   }
 
   // Update message status
@@ -117,13 +159,13 @@ export async function fetchTranslate({ message, assistant, onResponse }: FetchTr
   const model = getTranslateModel()
 
   if (!model) {
-    return ''
+    throw new Error(i18n.t('error.provider_disabled'))
   }
 
   const provider = getProviderByModel(model)
 
   if (!hasApiKey(provider)) {
-    return ''
+    throw new Error(i18n.t('error.no_api_key'))
   }
 
   const AI = new AiProvider(provider)
@@ -177,7 +219,6 @@ export async function fetchSuggestions({
   assistant: Assistant
 }): Promise<Suggestion[]> {
   const model = assistant.model
-
   if (!model) {
     return []
   }
@@ -200,16 +241,20 @@ export async function fetchSuggestions({
   }
 }
 
-export async function checkApi(provider: Provider, model: Model) {
+// Helper function to validate provider's basic settings such as API key, host, and model list
+export function checkApiProvider(provider: Provider): {
+  valid: boolean
+  error: Error | null
+} {
   const key = 'api-check'
   const style = { marginTop: '3vh' }
 
-  if (provider.id !== 'ollama') {
+  if (provider.id !== 'ollama' && provider.id !== 'lmstudio') {
     if (!provider.apiKey) {
       window.message.error({ content: i18n.t('message.error.enter.api.key'), key, style })
       return {
         valid: false,
-        error: new Error('message.error.enter.api.key')
+        error: new Error(i18n.t('message.error.enter.api.key'))
       }
     }
   }
@@ -218,7 +263,7 @@ export async function checkApi(provider: Provider, model: Model) {
     window.message.error({ content: i18n.t('message.error.enter.api.host'), key, style })
     return {
       valid: false,
-      error: new Error('message.error.enter.api.host')
+      error: new Error(i18n.t('message.error.enter.api.host'))
     }
   }
 
@@ -226,7 +271,22 @@ export async function checkApi(provider: Provider, model: Model) {
     window.message.error({ content: i18n.t('message.error.enter.model'), key, style })
     return {
       valid: false,
-      error: new Error('message.error.enter.model')
+      error: new Error(i18n.t('message.error.enter.model'))
+    }
+  }
+
+  return {
+    valid: true,
+    error: null
+  }
+}
+
+export async function checkApi(provider: Provider, model: Model) {
+  const validation = checkApiProvider(provider)
+  if (!validation.valid) {
+    return {
+      valid: validation.valid,
+      error: validation.error
     }
   }
 
@@ -242,7 +302,7 @@ export async function checkApi(provider: Provider, model: Model) {
 
 function hasApiKey(provider: Provider) {
   if (!provider) return false
-  if (provider.id === 'ollama') return true
+  if (provider.id === 'ollama' || provider.id === 'lmstudio') return true
   return !isEmpty(provider.apiKey)
 }
 

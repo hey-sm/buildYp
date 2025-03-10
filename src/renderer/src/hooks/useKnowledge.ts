@@ -19,8 +19,7 @@ import {
   updateItemProcessingStatus,
   updateNotes
 } from '@renderer/store/knowledge'
-import { FileType, KnowledgeBase, ProcessingStatus } from '@renderer/types'
-import { KnowledgeItem } from '@renderer/types'
+import { FileType, KnowledgeBase, KnowledgeItem, ProcessingStatus } from '@renderer/types'
 import { runAsyncFunction } from '@renderer/utils'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -138,15 +137,18 @@ export const useKnowledge = (baseId: string) => {
   const removeItem = async (item: KnowledgeItem) => {
     dispatch(removeItemAction({ baseId, item }))
     if (base) {
-      if (item?.uniqueId) {
-        await window.api.knowledgeBase.remove({ uniqueId: item.uniqueId, base: getKnowledgeBaseParams(base) })
-      }
-      if (item.type === 'file' && typeof item.content === 'object') {
-        await FileManager.deleteFile(item.content.id)
+      if (item?.uniqueId && item?.uniqueIds) {
+        await window.api.knowledgeBase.remove({
+          uniqueId: item.uniqueId,
+          uniqueIds: item.uniqueIds,
+          base: getKnowledgeBaseParams(base)
+        })
       }
     }
+    if (item.type === 'file' && typeof item.content === 'object') {
+      await FileManager.deleteFile(item.content.id)
+    }
   }
-
   // 刷新项目
   const refreshItem = async (item: KnowledgeItem) => {
     const status = getProcessingStatus(item.id)
@@ -155,8 +157,12 @@ export const useKnowledge = (baseId: string) => {
       return
     }
 
-    if (base && item.uniqueId) {
-      await window.api.knowledgeBase.remove({ uniqueId: item.uniqueId, base: getKnowledgeBaseParams(base) })
+    if (base && item.uniqueId && item.uniqueIds) {
+      await window.api.knowledgeBase.remove({
+        uniqueId: item.uniqueId,
+        uniqueIds: item.uniqueIds,
+        base: getKnowledgeBaseParams(base)
+      })
       updateItem({
         ...item,
         processingStatus: 'pending',
@@ -189,6 +195,32 @@ export const useKnowledge = (baseId: string) => {
   // 获取特定类型的所有处理项
   const getProcessingItemsByType = (type: 'file' | 'url' | 'note') => {
     return base?.items.filter((item) => item.type === type && item.processingStatus !== undefined) || []
+  }
+
+  // 获取目录处理进度
+  const getDirectoryProcessingPercent = (itemId?: string) => {
+    const [percent, setPercent] = useState<number>(0)
+
+    useEffect(() => {
+      if (!itemId) {
+        return
+      }
+
+      const cleanup = window.electron.ipcRenderer.on(
+        'directory-processing-percent',
+        (_, { itemId: id, percent }: { itemId: string; percent: number }) => {
+          if (itemId === id) {
+            setPercent(percent)
+          }
+        }
+      )
+
+      return () => {
+        cleanup()
+      }
+    }, [itemId])
+
+    return percent
   }
 
   // 清除已完成的项目
@@ -273,6 +305,7 @@ export const useKnowledge = (baseId: string) => {
     refreshItem,
     getProcessingStatus,
     getProcessingItemsByType,
+    getDirectoryProcessingPercent,
     clearCompleted,
     clearAll,
     removeItem,
@@ -300,16 +333,22 @@ export const useKnowledgeBases = () => {
 
     // remove assistant knowledge_base
     const _assistants = assistants.map((assistant) => {
-      if (assistant.knowledge_base?.id === baseId) {
-        return { ...assistant, knowledge_base: undefined }
+      if (assistant.knowledge_bases?.find((kb) => kb.id === baseId)) {
+        return {
+          ...assistant,
+          knowledge_bases: assistant.knowledge_bases.filter((kb) => kb.id !== baseId)
+        }
       }
       return assistant
     })
 
     // remove agent knowledge_base
     const _agents = agents.map((agent) => {
-      if (agent.knowledge_base?.id === baseId) {
-        return { ...agent, knowledge_base: undefined }
+      if (agent.knowledge_bases?.find((kb) => kb.id === baseId)) {
+        return {
+          ...agent,
+          knowledge_bases: agent.knowledge_bases.filter((kb) => kb.id !== baseId)
+        }
       }
       return agent
     })

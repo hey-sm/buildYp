@@ -1,11 +1,12 @@
 import OpenAI from 'openai'
+import React from 'react'
 import { BuiltinTheme } from 'shiki'
 
 export type Assistant = {
   id: string
   name: string
   prompt: string
-  knowledge_base?: KnowledgeBase
+  knowledge_bases?: KnowledgeBase[]
   topics: Topic[]
   type: string
   emoji?: string
@@ -37,7 +38,6 @@ export type AssistantSettings = {
   streamOutput: boolean
   hideMessages: boolean
   defaultModel?: Model
-  autoResetModel: boolean
   customParameters?: AssistantSettingCustomParameters[]
   reasoning_effort?: 'low' | 'medium' | 'high'
 }
@@ -53,7 +53,7 @@ export type Message = {
   translatedContent?: string
   topicId: string
   createdAt: string
-  status: 'sending' | 'pending' | 'success' | 'paused' | 'error'
+  status: 'sending' | 'pending' | 'searching' | 'success' | 'paused' | 'error'
   modelId?: string
   model?: Model
   files?: FileType[]
@@ -64,13 +64,20 @@ export type Message = {
   type: 'text' | '@' | 'clear'
   isPreset?: boolean
   mentions?: Model[]
-  metadata?: {
-    // Gemini
-    groundingMetadata?: any
-  }
   askId?: string
   useful?: boolean
   error?: Record<string, any>
+  enabledMCPs?: MCPServer[]
+  metadata?: {
+    // Gemini
+    groundingMetadata?: any
+    // Perplexity
+    citations?: string[]
+    // Web search
+    webSearch?: WebSearchResponse
+    // MCP Tools
+    mcpTools?: MCPToolResponse[]
+  }
 }
 
 export type Metrics = {
@@ -87,6 +94,8 @@ export type Topic = {
   createdAt: string
   updatedAt: string
   messages: Message[]
+  pinned?: boolean
+  prompt?: string
 }
 
 export type User = {
@@ -148,6 +157,7 @@ export type MinAppType = {
   url: string
   bodered?: boolean
   background?: string
+  style?: React.CSSProperties
 }
 
 export interface FileType {
@@ -158,7 +168,7 @@ export interface FileType {
   size: number
   ext: string
   type: FileTypes
-  created_at: Date
+  created_at: string
   count: number
   tokens?: number
 }
@@ -217,8 +227,10 @@ export type KnowledgeItem = {
   id: string
   baseId?: string
   uniqueId?: string
+  uniqueIds?: string[]
   type: KnowledgeItemType
   content: string | FileType
+  remark?: string
   created_at: number
   updated_at: number
   processingStatus?: ProcessingStatus
@@ -240,6 +252,7 @@ export interface KnowledgeBase {
   documentCount?: number
   chunkSize?: number
   chunkOverlap?: number
+  threshold?: number
 }
 
 export type KnowledgeBaseParams = {
@@ -266,4 +279,87 @@ export type GenerateImageParams = {
   promptEnhancement?: boolean
 }
 
+export interface TranslateHistory {
+  id: string
+  sourceText: string
+  targetText: string
+  sourceLanguage: string
+  targetLanguage: string
+  createdAt: string
+}
+
 export type SidebarIcon = 'assistants' | 'agents' | 'paintings' | 'translate' | 'minapp' | 'knowledge' | 'files'
+
+export type WebSearchProvider = {
+  id: string
+  name: string
+  apiKey?: string
+  apiHost?: string
+  engines?: string[]
+}
+
+export type WebSearchResponse = {
+  query?: string
+  results: WebSearchResult[]
+}
+
+export type WebSearchResult = {
+  title: string
+  content: string
+  url: string
+}
+
+export type KnowledgeReference = {
+  id: number
+  content: string
+  sourceUrl: string
+  type: KnowledgeItemType
+  file?: FileType
+}
+
+export type MCPArgType = 'string' | 'list' | 'number'
+export type MCPEnvType = 'string' | 'number'
+export type MCPArgParameter = { [key: string]: MCPArgType }
+export type MCPEnvParameter = { [key: string]: MCPEnvType }
+
+export interface MCPServerParameter {
+  name: string
+  type: MCPArgType | MCPEnvType
+  description: string
+}
+
+export interface MCPServer {
+  name: string
+  description?: string
+  baseUrl?: string
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  isActive: boolean
+}
+
+export interface MCPToolInputSchema {
+  type: string
+  title: string
+  description?: string
+  required?: string[]
+  properties: Record<string, object>
+}
+
+export interface MCPTool {
+  id: string
+  serverName: string
+  name: string
+  description?: string
+  inputSchema: MCPToolInputSchema
+}
+
+export interface MCPConfig {
+  servers: MCPServer[]
+}
+
+export interface MCPToolResponse {
+  tool: MCPTool
+  status: string
+  response?: any
+}

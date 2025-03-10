@@ -1,31 +1,20 @@
-import {
-  CheckOutlined,
-  EditOutlined,
-  ExportOutlined,
-  LoadingOutlined,
-  MinusCircleOutlined,
-  PlusOutlined,
-  SettingOutlined
-} from '@ant-design/icons'
+import { CheckOutlined, ExportOutlined, HeartOutlined, LoadingOutlined } from '@ant-design/icons'
 import { HStack } from '@renderer/components/Layout'
-import ModelTags from '@renderer/components/ModelTags'
 import OAuthButton from '@renderer/components/OAuth/OAuthButton'
-import { EMBEDDING_REGEX, getModelLogo, REASONING_REGEX, VISION_REGEX } from '@renderer/config/models'
 import { PROVIDER_CONFIG } from '@renderer/config/providers'
 import { useTheme } from '@renderer/context/ThemeProvider'
-import { useAssistants, useDefaultModel } from '@renderer/hooks/useAssistant'
 import { useProvider } from '@renderer/hooks/useProvider'
 import i18n from '@renderer/i18n'
 import { isOpenAIProvider } from '@renderer/providers/ProviderFactory'
 import { checkApi } from '@renderer/services/ApiService'
+import { checkModelsHealth, ModelCheckStatus } from '@renderer/services/HealthCheckService'
 import { isProviderSupportAuth, isProviderSupportCharge } from '@renderer/services/ProviderService'
-import { useAppDispatch } from '@renderer/store'
-import { setModel } from '@renderer/store/assistants'
-import { Model, ModelType, Provider } from '@renderer/types'
+import { Provider } from '@renderer/types'
+import { formatApiHost } from '@renderer/utils/api'
 import { providerCharge } from '@renderer/utils/oauth'
-import { Avatar, Button, Card, Checkbox, Divider, Flex, Input, Popover, Space, Switch } from 'antd'
+import { Button, Divider, Flex, Input, Space, Switch } from 'antd'
 import Link from 'antd/es/typography/Link'
-import { groupBy, isEmpty } from 'lodash'
+import { isEmpty } from 'lodash'
 import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -38,10 +27,11 @@ import {
   SettingSubtitle,
   SettingTitle
 } from '..'
-import AddModelPopup from './AddModelPopup'
 import ApiCheckPopup from './ApiCheckPopup'
-import EditModelsPopup from './EditModelsPopup'
 import GraphRAGSettings from './GraphRAGSettings'
+import HealthCheckPopup from './HealthCheckPopup'
+import LMStudioSettings from './LMStudioSettings'
+import ModelList, { ModelStatus } from './ModelList'
 import OllamSettings from './OllamaSettings'
 import SelectProviderModelPopup from './SelectProviderModelPopup'
 
@@ -56,23 +46,19 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
   const [apiVersion, setApiVersion] = useState(provider.apiVersion)
   const [apiValid, setApiValid] = useState(false)
   const [apiChecking, setApiChecking] = useState(false)
-  const { updateProvider, models, removeModel } = useProvider(provider.id)
-  const { assistants } = useAssistants()
+  const { updateProvider, models } = useProvider(provider.id)
   const { t } = useTranslation()
   const { theme } = useTheme()
-  const dispatch = useAppDispatch()
 
-  const { defaultModel, setDefaultModel } = useDefaultModel()
-
-  const modelGroups = groupBy(models, 'group')
   const isAzureOpenAI = provider.id === 'azure-openai' || provider.type === 'azure-openai'
 
   const providerConfig = PROVIDER_CONFIG[provider.id]
   const officialWebsite = providerConfig?.websites?.official
   const apiKeyWebsite = providerConfig?.websites?.apiKey
-  const docsWebsite = providerConfig?.websites?.docs
-  const modelsWebsite = providerConfig?.websites?.models
   const configedApiHost = providerConfig?.api?.url
+
+  const [modelStatuses, setModelStatuses] = useState<ModelStatus[]>([])
+  const [isHealthChecking, setIsHealthChecking] = useState(false)
 
   const onUpdateApiKey = () => {
     if (apiKey !== provider.apiKey) {
@@ -89,8 +75,99 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
   }
 
   const onUpdateApiVersion = () => updateProvider({ ...provider, apiVersion })
-  const onManageModel = () => EditModelsPopup.show({ provider })
-  const onAddModel = () => AddModelPopup.show({ title: t('settings.models.add.add_model'), provider })
+
+  const onHealthCheck = async () => {
+    if (isEmpty(models)) {
+      window.message.error({
+        key: 'no-models',
+        style: { marginTop: '3vh' },
+        duration: 5,
+        content: t('settings.provider.no_models')
+      })
+      return
+    }
+
+    const keys = apiKey
+      .split(',')
+      .map((k) => k.trim())
+      .filter((k) => k)
+
+    if (keys.length === 0) {
+      window.message.error({
+        key: 'no-api-keys',
+        style: { marginTop: '3vh' },
+        duration: 5,
+        content: t('settings.models.check.no_api_keys')
+      })
+      return
+    }
+
+    // Show configuration dialog to get health check parameters
+    const result = await HealthCheckPopup.show({
+      title: t('settings.models.check.title'),
+      provider: { ...provider, apiHost },
+      apiKeys: keys
+    })
+
+    if (result.cancelled || result.apiKeys.length === 0) {
+      return
+    }
+
+    // Prepare the list of models to be checked
+    const initialStatuses = models.map((model) => ({
+      model,
+      checking: true,
+      status: undefined
+    }))
+    setModelStatuses(initialStatuses)
+    setIsHealthChecking(true)
+
+    const checkResults = await checkModelsHealth(
+      {
+        provider: { ...provider, apiHost },
+        models,
+        apiKeys: result.apiKeys,
+        isConcurrent: result.isConcurrent
+      },
+      (checkResult, index) => {
+        setModelStatuses((current) => {
+          const updated = [...current]
+          if (updated[index]) {
+            updated[index] = {
+              ...updated[index],
+              checking: false,
+              status: checkResult.status,
+              error: checkResult.error,
+              keyResults: checkResult.keyResults,
+              latency: checkResult.latency
+            }
+          }
+          return updated
+        })
+      }
+    )
+
+    // Show summary of results after checking
+    const failedModels = checkResults.filter((result) => result.status === ModelCheckStatus.FAILED)
+    const partialModels = checkResults.filter((result) => result.status === ModelCheckStatus.PARTIAL)
+    const successModels = checkResults.filter((result) => result.status === ModelCheckStatus.SUCCESS)
+
+    // Display statistics of all model check results
+    window.message.info({
+      key: 'health-check-summary',
+      style: { marginTop: '3vh' },
+      duration: 10,
+      content: t('settings.models.check.model_status_summary', {
+        provider: provider.name,
+        count_passed: successModels.length,
+        count_failed: failedModels.length,
+        count_partial: partialModels.length
+      })
+    })
+
+    // Reset health check status
+    setIsHealthChecking(false)
+  }
 
   const onCheckApi = async () => {
     if (isEmpty(models)) {
@@ -159,59 +236,7 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
       return apiHost.replace('#', '')
     }
 
-    return (apiHost.endsWith('/') ? apiHost : `${apiHost}/v1/`) + 'chat/completions'
-  }
-
-  const onUpdateModelTypes = (model: Model, types: ModelType[]) => {
-    const updatedModels = models.map((m) => {
-      if (m.id === model.id) {
-        return { ...m, type: types }
-      }
-      return m
-    })
-
-    updateProvider({ ...provider, models: updatedModels })
-
-    assistants.forEach((assistant) => {
-      if (assistant?.model?.id === model.id && assistant.model.provider === provider.id) {
-        dispatch(
-          setModel({
-            assistantId: assistant.id,
-            model: { ...model, type: types }
-          })
-        )
-      }
-    })
-
-    if (defaultModel?.id === model.id && defaultModel?.provider === provider.id) {
-      setDefaultModel({ ...defaultModel, type: types })
-    }
-  }
-
-  const modelTypeContent = (model: Model) => {
-    // 获取默认选中的类型
-    const defaultTypes = [
-      ...(VISION_REGEX.test(model.id) ? ['vision'] : []),
-      ...(EMBEDDING_REGEX.test(model.id) ? ['embedding'] : []),
-      ...(REASONING_REGEX.test(model.id) ? ['reasoning'] : [])
-    ] as ModelType[]
-
-    // 合并现有选择和默认类型
-    const selectedTypes = [...new Set([...(model.type || []), ...defaultTypes])]
-
-    return (
-      <div>
-        <Checkbox.Group
-          value={selectedTypes}
-          onChange={(types) => onUpdateModelTypes(model, types as ModelType[])}
-          options={[
-            { label: t('models.type.vision'), value: 'vision', disabled: VISION_REGEX.test(model.id) },
-            { label: t('models.type.embedding'), value: 'embedding', disabled: EMBEDDING_REGEX.test(model.id) },
-            { label: t('models.type.reasoning'), value: 'reasoning', disabled: REASONING_REGEX.test(model.id) }
-          ]}
-        />
-      </div>
-    )
+    return formatApiHost(apiHost) + 'chat/completions'
   }
 
   const formatApiKeys = (value: string) => {
@@ -253,7 +278,6 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
       <SettingSubtitle style={{ marginTop: 5 }}>{t('settings.provider.api_key')}</SettingSubtitle>
       <Space.Compact style={{ width: '100%', marginTop: 5 }}>
         <Input.Password
-          disabled={provider.id === 'dashscope'}
           value={apiKey}
           placeholder={t('settings.provider.api_key')}
           onChange={(e) => setApiKey(formatApiKeys(e.target.value))}
@@ -320,100 +344,30 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
         </>
       )}
       {provider.id === 'ollama' && <OllamSettings />}
+      {provider.id === 'lmstudio' && <LMStudioSettings />}
       {provider.id === 'graphrag-kylin-mountain' && provider.models.length > 0 && (
         <GraphRAGSettings provider={provider} />
       )}
-      <SettingSubtitle style={{ marginBottom: 5 }}>{t('common.models')}</SettingSubtitle>
-      {Object.keys(modelGroups).map((group) => (
-        <Card
-          key={group}
-          type="inner"
-          title={group}
-          style={{ marginBottom: '10px', border: '0.5px solid var(--color-border)' }}
-          size="small">
-          {modelGroups[group].map((model) => (
-            <ModelListItem key={model.id}>
-              <ModelListHeader>
-                <Avatar src={getModelLogo(model.id)} size={22} style={{ marginRight: '8px' }}>
-                  {model?.name?.[0]?.toUpperCase()}
-                </Avatar>
-                <ModelNameRow>
-                  <span>{model?.name}</span>
-                  <ModelTags model={model} />
-                </ModelNameRow>
-                <Popover content={modelTypeContent(model)} title={t('models.type.select')} trigger="click">
-                  <SettingIcon />
-                </Popover>
-              </ModelListHeader>
-              <RemoveIcon onClick={() => removeModel(model)} />
-            </ModelListItem>
-          ))}
-        </Card>
-      ))}
-      {docsWebsite && (
-        <SettingHelpTextRow>
-          <SettingHelpText>{t('settings.provider.docs_check')} </SettingHelpText>
-          <SettingHelpLink target="_blank" href={docsWebsite}>
-            {t(`provider.${provider.id}`) + ' '}
-            {t('common.docs')}
-          </SettingHelpLink>
-          <SettingHelpText>{t('common.and')}</SettingHelpText>
-          <SettingHelpLink target="_blank" href={modelsWebsite}>
-            {t('common.models')}
-          </SettingHelpLink>
-          <SettingHelpText>{t('settings.provider.docs_more_details')}</SettingHelpText>
-        </SettingHelpTextRow>
-      )}
-      <Flex gap={10} style={{ marginTop: '10px' }}>
-        <Button type="primary" onClick={onManageModel} icon={<EditOutlined />}>
-          {t('button.manage')}
-        </Button>
-        <Button type="default" onClick={onAddModel} icon={<PlusOutlined />}>
-          {t('button.add')}
-        </Button>
-      </Flex>
+      <SettingSubtitle style={{ marginBottom: 5 }}>
+        <Flex align="center" justify="space-between" style={{ width: '100%' }}>
+          <span>{t('common.models')}</span>
+          <Space>
+            {!isEmpty(models) && (
+              <Button
+                type="text"
+                size="small"
+                icon={<HeartOutlined />}
+                onClick={onHealthCheck}
+                loading={isHealthChecking}
+                title={t('settings.models.check.button_caption')}></Button>
+            )}
+          </Space>
+        </Flex>
+      </SettingSubtitle>
+      <ModelList provider={provider} modelStatuses={modelStatuses} />
     </SettingContainer>
   )
 }
-
-const ModelListItem = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 0;
-`
-
-const ModelListHeader = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-`
-
-const ModelNameRow = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-`
-
-const RemoveIcon = styled(MinusCircleOutlined)`
-  font-size: 18px;
-  margin-left: 10px;
-  color: var(--color-error);
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-`
-
-const SettingIcon = styled(SettingOutlined)`
-  margin-left: 2px;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  &:hover {
-    color: var(--color-text-2);
-  }
-`
 
 const ProviderName = styled.span`
   font-size: 14px;

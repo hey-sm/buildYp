@@ -1,9 +1,9 @@
-import type { AddLoaderReturn } from '@llm-tools/embedjs-interfaces'
 import db from '@renderer/databases'
 import { getKnowledgeBaseParams } from '@renderer/services/KnowledgeService'
 import store from '@renderer/store'
 import { clearCompletedProcessing, updateBaseItemUniqueId, updateItemProcessingStatus } from '@renderer/store/knowledge'
 import { KnowledgeItem } from '@renderer/types'
+import type { LoaderReturn } from '@shared/config/types'
 
 class KnowledgeQueue {
   private processing: Map<string, boolean> = new Map()
@@ -51,20 +51,24 @@ class KnowledgeQueue {
         throw new Error('Knowledge base not found')
       }
 
-      const processableItems = base.items.filter((item) => {
-        if (item.processingStatus === 'failed') {
-          return !item.retryCount || item.retryCount < this.MAX_RETRIES
-        }
-        return item.processingStatus === 'pending'
-      })
+      const findProcessableItem = () => {
+        const state = store.getState()
+        const base = state.knowledge.bases.find((b) => b.id === baseId)
+        return (
+          base?.items.find((item) => {
+            if (item.processingStatus === 'failed') {
+              return !item.retryCount || item.retryCount < this.MAX_RETRIES
+            } else {
+              return item.processingStatus === 'pending'
+            }
+          }) ?? null
+        )
+      }
 
-      for (const item of processableItems) {
-        if (!this.processing.get(baseId)) {
-          console.log(`[KnowledgeQueue] Processing interrupted for base ${baseId}`)
-          break
-        }
-
-        this.processItem(baseId, item)
+      let processableItem = findProcessableItem()
+      while (processableItem) {
+        this.processItem(baseId, processableItem).then()
+        processableItem = findProcessableItem()
       }
     } finally {
       console.log(`[KnowledgeQueue] Finished processing queue for base ${baseId}`)
@@ -113,7 +117,7 @@ class KnowledgeQueue {
         throw new Error(`[KnowledgeQueue] Source item ${item.id} not found in base ${baseId}`)
       }
 
-      let result: AddLoaderReturn | null = null
+      let result: LoaderReturn | null = null
       let note, content
 
       console.log(`[KnowledgeQueue] Processing item: ${sourceItem.content}`)
@@ -146,16 +150,16 @@ class KnowledgeQueue {
           updateBaseItemUniqueId({
             baseId,
             itemId: item.id,
-            uniqueId: result.uniqueId
+            uniqueId: result.uniqueId,
+            uniqueIds: result.uniqueIds
           })
         )
       }
+      console.debug(`[KnowledgeQueue] Updated uniqueId for item ${item.id} in base ${baseId} `)
 
-      console.debug(`[KnowledgeQueue] Updated uniqueId for item ${item.id} in base ${baseId}`)
-
-      setTimeout(() => store.dispatch(clearCompletedProcessing({ baseId })), 1000)
+      store.dispatch(clearCompletedProcessing({ baseId }))
     } catch (error) {
-      console.error(`[KnowledgeQueue] Error processing item ${item.id}:`, error)
+      console.error(`[KnowledgeQueue] Error processing item ${item.id}: `, error)
       store.dispatch(
         updateItemProcessingStatus({
           baseId,

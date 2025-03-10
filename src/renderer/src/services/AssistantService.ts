@@ -12,6 +12,7 @@ export function getDefaultAssistant(): Assistant {
   return {
     id: 'default',
     name: i18n.t('chat.default.name'),
+    emoji: '⭐️',
     prompt: '',
     topics: [getDefaultTopic('default')],
     messages: [],
@@ -30,8 +31,8 @@ export function getDefaultTranslateAssistant(targetLanguage: string, text: strin
 
   assistant.prompt = store
     .getState()
-    .settings.translateModelPrompt.replace('{{target_language}}', targetLanguage)
-    .replace('{{text}}', text)
+    .settings.translateModelPrompt.replaceAll('{{target_language}}', targetLanguage)
+    .replaceAll('{{text}}', text)
   return assistant
 }
 
@@ -106,13 +107,8 @@ export const getAssistantSettings = (assistant: Assistant): AssistantSettings =>
     streamOutput: assistant?.settings?.streamOutput ?? true,
     hideMessages: assistant?.settings?.hideMessages ?? false,
     defaultModel: assistant?.defaultModel ?? undefined,
-    autoResetModel: assistant?.settings?.autoResetModel ?? false,
     customParameters: assistant?.settings?.customParameters ?? []
   }
-}
-
-export function getAssistantNameWithAgent(agent: Agent) {
-  return agent.emoji ? agent.emoji + ' ' + agent.name : agent.name
 }
 
 export function getAssistantById(id: string) {
@@ -153,7 +149,8 @@ export async function createAssistantFromAgent(agent: Agent) {
   const assistant: Assistant = {
     ...agent,
     id: assistantId,
-    name: agent.emoji ? agent.emoji + ' ' + agent.name : agent.name,
+    name: agent.name,
+    emoji: agent.emoji,
     topics: [topic],
     model: agent.defaultModel,
     type: 'assistant'

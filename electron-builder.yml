@@ -24,9 +24,9 @@ files:
   - '!**/{LICENSE,LICENSE.txt,LICENSE-MIT.txt,*.LICENSE.txt,NOTICE.txt,README.md,CHANGELOG.md}'
   - '!node_modules/rollup-plugin-visualizer'
   - '!node_modules/js-tiktoken'
+  - '!node_modules/@tavily/core/node_modules/js-tiktoken'
   - '!node_modules/pdf-parse/lib/pdf.js/{v1.9.426,v1.10.88,v2.0.550}'
   - '!node_modules/mammoth/{mammoth.browser.js,mammoth.browser.min.js}'
-  - '!node_modules/html2canvas/dist/{html2canvas.min.js,html2canvas.esm.js}'
 asarUnpack:
   - resources/**
   - '**/*.{node,dll,metal,exp,lib}'
@@ -80,12 +80,4 @@ afterPack: scripts/after-pack.js
 afterSign: scripts/notarize.js
 releaseInfo:
   releaseNotes: |
-    知识库增加设置功能
-    更加友好的错误提示信息
-    增加百度云千帆服务商
-    修复 Groq deepseek 模型无法使用问题
-    优化思考过程显示 @jettpark @github
-    可以为助手绑定一个知识库 @eeee0717
-    修复知识库搜索崩溃问题 @yrom
-    优化 o3-mini 模型输出显示问题 @teaim
-    移除 QwenLM 服务商
+    修复公式渲染问题

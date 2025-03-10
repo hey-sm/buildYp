@@ -1,6 +1,7 @@
-@import './markdown.scss';
-@import './ant.scss';
-@import './scrollbar.scss';
+@use './markdown.scss';
+@use './ant.scss';
+@use './scrollbar.scss';
+@use './container.scss';
 @import '../fonts/icon-fonts/iconfont.css';
 @import '../fonts/ubuntu/ubuntu.css';
 
@@ -25,6 +26,7 @@
   --color-background-soft: var(--color-black-soft);
   --color-background-mute: var(--color-black-mute);
   --color-background-opacity: rgba(34, 34, 34, 0.7);
+  --inner-glow-opacity: 0.3; // For the glassmorphism effect in the dropdown menu
 
   --color-primary: #00b96b;
   --color-primary-soft: #00b96b99;
@@ -88,7 +90,8 @@ body[theme-mode='light'] {
   --color-background: var(--color-white);
   --color-background-soft: var(--color-white-soft);
   --color-background-mute: var(--color-white-mute);
-  --color-background-opacity: rgba(255, 255, 255, 0.7);
+  --color-background-opacity: rgba(235, 235, 235, 0.7);
+  --inner-glow-opacity: 0.1;
 
   --color-primary: #00b96b;
   --color-primary-soft: #00b96b99;
@@ -176,14 +179,6 @@ body,
   flex: 1;
 }
 
-#content-container {
-  background-color: var(--color-background);
-  border-top: 0.5px solid var(--color-border);
-  border-top-left-radius: 10px;
-  border-left: 0.5px solid var(--color-border);
-  box-shadow: -2px 0px 20px -4px rgba(0, 0, 0, 0.06);
-}
-
 .loader {
   width: 16px;
   height: 16px;
@@ -255,6 +250,9 @@ body,
       width: 100%;
       border: 1px solid var(--color-background-mute);
     }
+  }
+  .group-menu-bar {
+    background-color: var(--color-background);
   }
   code {
     color: var(--color-text);

@@ -7,12 +7,15 @@ import agents from './agents'
 import assistants from './assistants'
 import knowledge from './knowledge'
 import llm from './llm'
+import mcp from './mcp'
+import messagesReducer from './messages'
 import migrate from './migrate'
 import minapps from './minapps'
 import paintings from './paintings'
 import runtime from './runtime'
 import settings from './settings'
 import shortcuts from './shortcuts'
+import websearch from './websearch'
 
 const rootReducer = combineReducers({
   assistants,
@@ -23,15 +26,18 @@ const rootReducer = combineReducers({
   runtime,
   shortcuts,
   knowledge,
-  minapps
+  minapps,
+  websearch,
+  messages: messagesReducer,
+  mcp
 })
 
 const persistedReducer = persistReducer(
   {
     key: 'cherry-studio',
     storage,
-    version: 68,
-    blacklist: ['runtime'],
+    version: 77,
+    blacklist: ['runtime', 'messages'],
     migrate
   },
   rootReducer

@@ -1,15 +1,16 @@
 import { FONT_FAMILY } from '@renderer/config/constant'
-import db from '@renderer/databases'
 import { useAssistant } from '@renderer/hooks/useAssistant'
 import { useModel } from '@renderer/hooks/useModel'
 import { useMessageStyle, useSettings } from '@renderer/hooks/useSettings'
-import { fetchChatCompletion } from '@renderer/services/ApiService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getMessageModelId } from '@renderer/services/MessagesService'
+import { getModelUniqId } from '@renderer/services/ModelService'
 import { estimateMessageUsage } from '@renderer/services/TokenService'
-import { Message, Topic } from '@renderer/types'
+import { useAppDispatch } from '@renderer/store'
+import { updateMessages } from '@renderer/store/messages'
+import { Assistant, Message, Topic } from '@renderer/types'
 import { classNames, runAsyncFunction } from '@renderer/utils'
-import { Divider } from 'antd'
+import { Divider, Dropdown } from 'antd'
 import { Dispatch, FC, memo, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -22,48 +23,46 @@ import MessageTokens from './MessageTokens'
 
 interface Props {
   message: Message
-  topic?: Topic
+  topic: Topic
+  assistant?: Assistant
   index?: number
   total?: number
   hidePresetMessages?: boolean
   style?: React.CSSProperties
   isGrouped?: boolean
+  isStreaming?: boolean
   onGetMessages?: () => Message[]
   onSetMessages?: Dispatch<SetStateAction<Message[]>>
   onDeleteMessage?: (message: Message) => Promise<void>
 }
 
-const getMessageBackground = (isBubbleStyle: boolean, isAssistantMessage: boolean) => {
-  return isBubbleStyle
-    ? isAssistantMessage
-      ? 'var(--chat-background-assistant)'
-      : 'var(--chat-background-user)'
-    : undefined
-}
-
 const MessageItem: FC<Props> = ({
-  message: _message,
+  message,
   topic,
+  // assistant,
   index,
   hidePresetMessages,
   isGrouped,
+  isStreaming = false,
   style,
   onDeleteMessage,
-  onSetMessages,
   onGetMessages
 }) => {
-  const [message, setMessage] = useState(_message)
+  const dispatch = useAppDispatch()
   const { t } = useTranslation()
   const { assistant, setModel } = useAssistant(message.assistantId)
-  const model = useModel(getMessageModelId(message)) || message.model
+  const model = useModel(getMessageModelId(message), message.model?.provider) || message.model
   const { isBubbleStyle } = useMessageStyle()
   const { showMessageDivider, messageFont, fontSize } = useSettings()
   const messageContainerRef = useRef<HTMLDivElement>(null)
+  // const topic = useTopic(assistant, _topic?.id)
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  const [selectedQuoteText, setSelectedQuoteText] = useState<string>('')
+  const [selectedText, setSelectedText] = useState<string>('')
 
   const isLastMessage = index === 0
   const isAssistantMessage = message.role === 'assistant'
-
-  const showMenubar = !message.status.includes('ing')
+  const showMenubar = !isStreaming && !message.status.includes('ing')
 
   const fontFamily = useMemo(() => {
     return messageFont === 'serif' ? FONT_FAMILY.replace('sans-serif', 'serif').replace('Ubuntu, ', '') : FONT_FAMILY
@@ -72,17 +71,32 @@ const MessageItem: FC<Props> = ({
   const messageBorder = showMessageDivider ? undefined : 'none'
   const messageBackground = getMessageBackground(isBubbleStyle, isAssistantMessage)
 
-  const onEditMessage = useCallback(
-    (msg: Message) => {
-      setMessage(msg)
-      const messages = onGetMessages?.()?.map((m) => (m.id === message.id ? msg : m))
-      messages && onSetMessages?.(messages)
-      topic && db.topics.update(topic.id, { messages })
-    },
-    [message.id, onGetMessages, onSetMessages, topic]
-  )
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const _selectedText = window.getSelection()?.toString()
+    if (_selectedText) {
+      const quotedText =
+        _selectedText
+          .split('\n')
+          .map((line) => `> ${line}`)
+          .join('\n') + '\n-------------'
+      setSelectedQuoteText(quotedText)
+      setContextMenuPosition({ x: e.clientX, y: e.clientY })
+      setSelectedText(_selectedText)
+    }
+  }, [])
 
-  const messageHighlightHandler = (highlight: boolean = true) => {
+  useEffect(() => {
+    const handleClick = () => {
+      setContextMenuPosition(null)
+    }
+    document.addEventListener('click', handleClick)
+    return () => {
+      document.removeEventListener('click', handleClick)
+    }
+  }, [])
+
+  const messageHighlightHandler = useCallback((highlight: boolean = true) => {
     if (messageContainerRef.current) {
       messageContainerRef.current.scrollIntoView({ behavior: 'smooth' })
       if (highlight) {
@@ -93,56 +107,25 @@ const MessageItem: FC<Props> = ({
         }, 500)
       }
     }
-  }
+  }, [])
 
   useEffect(() => {
-    const unsubscribes = [
-      EventEmitter.on(EVENT_NAMES.LOCATE_MESSAGE + ':' + message.id, messageHighlightHandler),
-      EventEmitter.on(EVENT_NAMES.RESEND_MESSAGE + ':' + message.id, onEditMessage)
-    ]
+    const unsubscribes = [EventEmitter.on(EVENT_NAMES.LOCATE_MESSAGE + ':' + message.id, messageHighlightHandler)]
     return () => unsubscribes.forEach((unsub) => unsub())
-  }, [message, onEditMessage])
+  }, [message.id, messageHighlightHandler])
 
   useEffect(() => {
-    if (message.role === 'user' && !message.usage) {
+    if (message.role === 'user' && !message.usage && topic) {
       runAsyncFunction(async () => {
         const usage = await estimateMessageUsage(message)
-        setMessage({ ...message, usage })
-        const topic = await db.topics.get({ id: message.topicId })
-        const messages = topic?.messages.map((m) => (m.id === message.id ? { ...m, usage } : m))
-        db.topics.update(message.topicId, { messages })
+        if (topic) {
+          await dispatch(
+            updateMessages(topic, onGetMessages?.()?.map((m) => (m.id === message.id ? { ...m, usage } : m)) || [])
+          )
+        }
       })
     }
-  }, [message])
-
-  useEffect(() => {
-    if (topic && onGetMessages && onSetMessages) {
-      if (message.status === 'sending') {
-        const messages = onGetMessages()
-        const assistantWithModel = message.model ? { ...assistant, model: message.model } : assistant
-
-        fetchChatCompletion({
-          message,
-          messages: messages
-            .filter((m) => !m.status.includes('ing'))
-            .slice(
-              0,
-              messages.findIndex((m) => m.id === message.id)
-            ),
-          assistant: assistantWithModel,
-          onResponse: (msg) => {
-            setMessage(msg)
-            if (msg.status !== 'pending') {
-              const _messages = onGetMessages().map((m) => (m.id === msg.id ? msg : m))
-              onSetMessages(_messages)
-              db.topics.update(topic.id, { messages: _messages })
-            }
-          }
-        })
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [message.status])
+  }, [message, topic, dispatch, onGetMessages])
 
   if (hidePresetMessages && message.isPreset) {
     return null
@@ -167,8 +150,19 @@ const MessageItem: FC<Props> = ({
         'message-user': !isAssistantMessage
       })}
       ref={messageContainerRef}
+      onContextMenu={handleContextMenu}
       style={{ ...style, alignItems: isBubbleStyle ? (isAssistantMessage ? 'start' : 'end') : undefined }}>
-      <MessageHeader message={message} assistant={assistant} model={model} key={getMessageModelId(message)} />
+      {contextMenuPosition && (
+        <ContextMenuOverlay style={{ left: contextMenuPosition.x, top: contextMenuPosition.y, zIndex: 1000 }}>
+          <Dropdown
+            menu={{ items: getContextMenuItems(t, selectedQuoteText, selectedText) }}
+            open={true}
+            trigger={['contextMenu']}>
+            <div />
+          </Dropdown>
+        </ContextMenuOverlay>
+      )}
+      <MessageHeader message={message} assistant={assistant} model={model} key={getModelUniqId(model)} />
       <MessageContentContainer
         className="message-content-container"
         style={{ fontFamily, fontSize, background: messageBackground }}>
@@ -184,14 +178,15 @@ const MessageItem: FC<Props> = ({
             <MessageTokens message={message} isLastMessage={isLastMessage} />
             <MessageMenubar
               message={message}
-              assistantModel={assistant?.model}
+              assistant={assistant}
               model={model}
               index={index}
+              topic={topic}
               isLastMessage={isLastMessage}
               isAssistantMessage={isAssistantMessage}
               isGrouped={isGrouped}
+              messageContainerRef={messageContainerRef}
               setModel={setModel}
-              onEditMessage={onEditMessage}
               onDeleteMessage={onDeleteMessage}
               onGetMessages={onGetMessages}
             />
@@ -202,11 +197,40 @@ const MessageItem: FC<Props> = ({
   )
 }
 
+const getMessageBackground = (isBubbleStyle: boolean, isAssistantMessage: boolean) => {
+  return isBubbleStyle
+    ? isAssistantMessage
+      ? 'var(--chat-background-assistant)'
+      : 'var(--chat-background-user)'
+    : undefined
+}
+
+const getContextMenuItems = (t: (key: string) => string, selectedQuoteText: string, selectedText: string) => [
+  {
+    key: 'copy',
+    label: t('common.copy'),
+    onClick: () => {
+      navigator.clipboard.writeText(selectedText)
+      window.message.success({ content: t('message.copied'), key: 'copy-message' })
+    }
+  },
+  {
+    key: 'quote',
+    label: t('chat.message.quote'),
+    onClick: () => {
+      EventEmitter.emit(EVENT_NAMES.QUOTE_TEXT, selectedQuoteText)
+    }
+  }
+]
+
 const MessageContainer = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
   transition: background-color 0.3s ease;
+  padding: 0 20px;
+  transform: translateZ(0);
+  will-change: transform;
   &.message-highlight {
     background-color: var(--color-primary-mute);
   }
@@ -232,6 +256,7 @@ const MessageContentContainer = styled.div`
   justify-content: space-between;
   margin-left: 46px;
   margin-top: 5px;
+  overflow-y: auto;
 `
 
 const MessageFooter = styled.div`
@@ -247,6 +272,10 @@ const MessageFooter = styled.div`
 
 const NewContextMessage = styled.div`
   cursor: pointer;
+`
+
+const ContextMenuOverlay = styled.div`
+  position: fixed;
 `
 
 export default memo(MessageItem)
