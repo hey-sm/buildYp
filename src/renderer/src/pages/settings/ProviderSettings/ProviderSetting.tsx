@@ -278,6 +278,7 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
       <SettingSubtitle style={{ marginTop: 5 }}>{t('settings.provider.api_key')}</SettingSubtitle>
       <Space.Compact style={{ width: '100%', marginTop: 5 }}>
         <Input.Password
+          disabled={provider.id === 'dashscope'}
           value={apiKey}
           placeholder={t('settings.provider.api_key')}
           onChange={(e) => setApiKey(formatApiKeys(e.target.value))}

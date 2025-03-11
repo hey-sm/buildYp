@@ -1239,6 +1239,41 @@ const migrateConfig = {
     }
 
     return state
+  },
+  '78': (state: RootState) => {
+    // 更新 websearch 配置
+    if (state.websearch) {
+      // 更新默认搜索提供商
+      state.websearch.defaultProvider = 'tavily'
+      // 更新 tavily 的 apiKey
+      const tavilyProvider = state.websearch.providers.find((p) => p.id === 'tavily')
+      if (tavilyProvider) {
+        tavilyProvider.apiKey = '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'
+      }
+    }
+
+    // 更新 llm 配置
+    if (state.llm) {
+      // 更新 dashscope provider
+      const dashscopeProvider = state.llm.providers.find((p) => p.id === 'dashscope')
+      if (dashscopeProvider) {
+        dashscopeProvider.apiKey = 'sk-2909a8954b604f7c847c6d664c912fe6'
+        dashscopeProvider.enabled = true
+      }
+
+      // 更新默认模型为 bailian
+      if (SYSTEM_MODELS.bailian && SYSTEM_MODELS.bailian[0]) {
+        state.llm.defaultModel = SYSTEM_MODELS.bailian[0]
+      }
+
+      // 更新 silicon provider
+      const siliconProvider = state.llm.providers.find((p) => p.id === 'silicon')
+      if (siliconProvider) {
+        siliconProvider.enabled = false
+      }
+    }
+
+    return state
   }
 }
 

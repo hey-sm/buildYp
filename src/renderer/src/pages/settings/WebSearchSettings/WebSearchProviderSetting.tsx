@@ -107,6 +107,7 @@ const WebSearchProviderSetting: FC<Props> = ({ provider: _provider }) => {
           <SettingSubtitle style={{ marginTop: 5, marginBottom: 10 }}>{t('settings.provider.api_key')}</SettingSubtitle>
           <Flex gap={8}>
             <Input.Password
+              disabled={provider.id === 'tavily'}
               value={apiKey}
               placeholder={t('settings.provider.api_key')}
               onChange={(e) => setApiKey(e.target.value)}

@@ -9,12 +9,12 @@ export interface WebSearchState {
 }
 
 const initialState: WebSearchState = {
-  defaultProvider: '',
+  defaultProvider: 'tavily',
   providers: [
     {
       id: 'tavily',
       name: 'Tavily',
-      apiKey: ''
+      apiKey: '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'
     },
     {
       id: 'searxng',
