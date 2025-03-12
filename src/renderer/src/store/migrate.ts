@@ -1273,6 +1273,15 @@ const migrateConfig = {
       }
     }
 
+    // 更新 sidebar icons
+    if (state.settings && state.settings.sidebarIcons) {
+      if (!state.settings.sidebarIcons.visible.includes('xhs')) {
+        state.settings.sidebarIcons.visible.push('xhs')
+      }
+    }
+
+    // 默认关闭检查更新
+    state.settings.manualUpdateCheck = true
     return state
   }
 }

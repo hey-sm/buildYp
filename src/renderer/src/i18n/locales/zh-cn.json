@@ -990,6 +990,9 @@
         "copying_files": "复制文件... {{progress}}%",
         "completed": "恢复完成"
       }
+    },
+    "xhs": {
+      "title": "小红书工具箱"
     }
   }
 }

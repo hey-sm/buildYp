@@ -20,6 +20,7 @@ import KnowledgePage from './pages/knowledge/KnowledgePage'
 import PaintingsPage from './pages/paintings/PaintingsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import TranslatePage from './pages/translate/TranslatePage'
+import { XhsRoutes } from './pages/xhs/routes'
 
 function App(): JSX.Element {
   return (
@@ -42,6 +43,7 @@ function App(): JSX.Element {
                       <Route path="/knowledge" element={<KnowledgePage />} />
                       <Route path="/apps" element={<AppsPage />} />
                       <Route path="/settings/*" element={<SettingsPage />} />
+                      {XhsRoutes}
                     </Routes>
                   </HashRouter>
                 </TopViewContainer>

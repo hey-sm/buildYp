@@ -990,6 +990,9 @@
         "copying_files": "Copying files... {{progress}}%",
         "completed": "Restore completed"
       }
+    },
+    "xhs": {
+      "title": "Red Book Tools"
     }
   }
 }

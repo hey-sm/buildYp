@@ -27,6 +27,7 @@ export interface RuntimeState {
   update: UpdateState
   webdavSync: WebDAVSyncState
   export: ExportState
+  xhsToolShow: boolean
 }
 
 export interface ExportState {
@@ -55,7 +56,8 @@ const initialState: RuntimeState = {
   },
   export: {
     isExporting: false
-  }
+  },
+  xhsToolShow: false
 }
 
 const runtimeSlice = createSlice({
@@ -88,7 +90,15 @@ const runtimeSlice = createSlice({
     },
     setExportState: (state, action: PayloadAction<Partial<ExportState>>) => {
       state.export = { ...state.export, ...action.payload }
+    },
+    setXhsToolShow: (state, action: PayloadAction<boolean>) => {
+      state.xhsToolShow = action.payload
     }
+  },
+  extraReducers: (builder) => {
+    builder.addCase(setXhsToolShow, (state, action) => {
+      state.xhsToolShow = action.payload
+    })
   }
 })
 
@@ -101,7 +111,8 @@ export const {
   setResourcesPath,
   setUpdateState,
   setWebDAVSyncState,
-  setExportState
+  setExportState,
+  setXhsToolShow
 } = runtimeSlice.actions
 
 export default runtimeSlice.reducer
