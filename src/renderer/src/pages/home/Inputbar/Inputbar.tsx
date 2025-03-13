@@ -11,6 +11,7 @@ import {
   QuestionCircleOutlined
 } from '@ant-design/icons'
 import TranslateButton from '@renderer/components/TranslateButton'
+import XiaohongshuLogo from '@renderer/assets/images/apps/xiaohongshu.png?url'
 import { isVisionModel, isWebSearchModel } from '@renderer/config/models'
 import db from '@renderer/databases'
 import { useAssistant } from '@renderer/hooks/useAssistant'
@@ -131,7 +132,8 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   _files = files
 
   const sendMessage = useCallback(async () => {
-    await modelGenerating()
+    console.log("第一步：触发sendMessage")
+    await modelGenerating() // 确保模型生成时不会发送消息
 
     if (inputEmpty) {
       return
@@ -139,7 +141,18 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
 
     try {
       // Dispatch the sendMessage action with all options
-      const uploadedFiles = await FileManager.uploadFiles(files)
+      const uploadedFiles = await FileManager.uploadFiles(files) // 上传附件
+
+
+      /**
+       使用 Redux 的 dispatch 方法触发 _sendMessage 动作，将消息发送出去。
+        参数包括：
+        text: 用户输入的文本内容。
+        assistant: 当前助手对象。
+        assistant.topics[0]: 当前话题对象。
+        其他选项如 files, knowledgeBaseIds, mentionModels, enabledMCPs。
+      */
+
       dispatch(
         _sendMessage(text, assistant, assistant.topics[0], {
           files: uploadedFiles,
@@ -158,7 +171,8 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     } catch (error) {
       console.error('Failed to send message:', error)
     }
-  }, [inputEmpty, files, dispatch, text, assistant, selectedKnowledgeBases, mentionModels, enabledMCPs])
+  },
+    [inputEmpty, files, dispatch, text, assistant, selectedKnowledgeBases, mentionModels, enabledMCPs])
 
   const translate = async () => {
     if (isTranslating) {
@@ -590,10 +604,12 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     })
   }
 
+  // 网络搜索的选中和取消
   const onEnableWebSearch = () => {
+    console.log("点了网络搜索")
     console.log(assistant)
-    if (!isWebSearchModel(model)) {
-      if (!WebSearchService.isWebSearchEnabled()) {
+    if (!isWebSearchModel(model)) { //判断模型是否支持网络搜索
+      if (!WebSearchService.isWebSearchEnabled()) { // 判断网络搜索是否开启
         window.modal.confirm({
           title: t('chat.input.web_search.enable'),
           content: t('chat.input.web_search.enable_content'),
@@ -607,6 +623,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
       }
     }
 
+    // ...assistant 将 assistant 对象的所有属性复制到一个新的对象中。 enableWebSearch 是更新特定的值：当前值取反
     updateAssistant({ ...assistant, enableWebSearch: !assistant.enableWebSearch })
   }
 
@@ -723,6 +740,22 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
               <Tooltip placement="top" title={expended ? t('chat.input.collapse') : t('chat.input.expand')} arrow>
                 <ToolbarButton type="text" onClick={onToggleExpended}>
                   {expended ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                </ToolbarButton>
+              </Tooltip>
+              <Tooltip placement="top" title="小红书" arrow>
+                <ToolbarButton type="text" onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img
+                      src={XiaohongshuLogo}
+                      alt="小红书"
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '4px',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  </div>
                 </ToolbarButton>
               </Tooltip>
               {textareaHeight && (

@@ -92,11 +92,16 @@ export default abstract class BaseProvider {
     }
   }
 
+  // 组合消息内容：把网络搜索结果、知识库内容插入到用户问题中
   public async getMessageContent(message: Message) {
     const webSearchReferences = await this.getWebSearchReferences(message)
+    console.log("第十一步：组合消息内容：把网络搜索结果、知识库内容插入到用户问题中")
 
     if (!isEmpty(webSearchReferences)) {
       const referenceContent = `\`\`\`json\n${JSON.stringify(webSearchReferences, null, 2)}\n\`\`\``
+      console.log("格式化的json")
+      console.log(referenceContent)
+      console.log("格式化的json")
       return REFERENCE_PROMPT.replace('{question}', message.content).replace('{references}', referenceContent)
     }
 
@@ -114,9 +119,13 @@ export default abstract class BaseProvider {
     return message.content
   }
 
-  private async getWebSearchReferences(message: Message) {
-    const webSearch: TavilySearchResponse = window.keyv.get(`web-search-${message.id}`)
 
+  private async getWebSearchReferences(message: Message) {
+    console.log("第九步：进入getWebSearchReferences方法,搜索结果被转换为知识引用开始")
+    const webSearch: TavilySearchResponse = window.keyv.get(`web-search-${message.id}`)
+    console.log("JLNwebSearch:")
+    console.log(webSearch)
+    console.log("JLNwebSearch:")
     if (webSearch) {
       return webSearch.results.map(
         (result, index) =>

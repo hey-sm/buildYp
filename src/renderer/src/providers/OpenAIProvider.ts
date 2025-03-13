@@ -232,9 +232,13 @@ export default class OpenAIProvider extends BaseProvider {
     return model.id.startsWith('o1')
   }
 
+  //  核心方法：生成聊天回复
   async completions({ messages, assistant, onChunk, onFilterMessages, mcpTools }: CompletionsParams): Promise<void> {
+
     const defaultModel = getDefaultModel()
     const model = assistant.model || defaultModel
+
+    // 1上下文消息的数量限制 2生成的最大token 数量  3是否启用流式输出
     const { contextCount, maxTokens, streamOutput } = getAssistantSettings(assistant)
 
     let systemMessage = assistant.prompt ? { role: 'system', content: assistant.prompt } : undefined
@@ -246,15 +250,21 @@ export default class OpenAIProvider extends BaseProvider {
       }
     }
 
-    const userMessages: ChatCompletionMessageParam[] = []
+    const userMessages: ChatCompletionMessageParam[] = [] 
 
-    const _messages = filterUserRoleStartMessages(filterContextMessages(takeRight(messages, contextCount + 1)))
-    onFilterMessages(_messages)
-
+    // 从所有消息中提取最近的 contextCount + 1 条消息。
+    const _messages = filterUserRoleStartMessages(filterContextMessages(takeRight(messages, contextCount + 1))) 
+    onFilterMessages(_messages) // 过滤掉不需要的消息
     for (const message of _messages) {
-      userMessages.push(await this.getMessageParam(message, model))
+      userMessages.push(await this.getMessageParam(message, model)) // 将每条消息转换为适合 OpenAI API 的格式，并存储到 userMessages 中
     }
 
+    console.log("end生成AI所需要的message")
+    console.log(_messages)
+    console.log(userMessages)
+    console.log("end生成AI所需要的message")
+
+    // 判断是否支持流式输出
     const isOpenAIo1 = this.isOpenAIo1(model)
 
     const isSupportStreamOutput = () => {
@@ -300,19 +310,38 @@ export default class OpenAIProvider extends BaseProvider {
     let time_first_token_millsec = 0
     let time_first_content_millsec = 0
     const start_time_millsec = new Date().getTime()
+
+
+
     const lastUserMessage = _messages.findLast((m) => m.role === 'user')
     const { abortController, cleanup } = this.createAbortController(lastUserMessage?.id)
     const { signal } = abortController
+    console.log("signal:")
+    console.log(signal)
+    console.log("signal:")
+
 
     mcpTools = filterMCPTools(mcpTools, lastUserMessage?.enabledMCPs)
+
+    console.log("mcpTools")
+    console.log(mcpTools)
+    console.log("mcpTools")
+
     const tools = mcpTools && mcpTools.length > 0 ? mcpToolsToOpenAITools(mcpTools) : undefined
 
+    //7:构建请求消息  将系统消息和用户消息合并成最终的请求消息列表。
     const reqMessages: ChatCompletionMessageParam[] = [systemMessage, ...userMessages].filter(
       Boolean
     ) as ChatCompletionMessageParam[]
 
+    console.log("最终的请求消息message")
+    console.log(reqMessages)
+    console.log("最终的请求消息的message")
+
+
     const toolResponses: MCPToolResponse[] = []
 
+    // 8. 定义流式处理逻辑
     const processStream = async (stream: any) => {
       if (!isSupportStreamOutput()) {
         const time_completion_millsec = new Date().getTime() - start_time_millsec
@@ -399,9 +428,8 @@ export default class OpenAIProvider extends BaseProvider {
 
             upsertMCPToolResponse(toolResponses, { tool: mcpTool, status: 'done', response: toolCallResponse }, onChunk)
           }
-
+          // @ts-ignore key is not typed
           const newStream = await this.sdk.chat.completions
-            // @ts-ignore key is not typed
             .create(
               {
                 model: model.id,
@@ -441,8 +469,15 @@ export default class OpenAIProvider extends BaseProvider {
       }
     }
 
+
+    /**
+     作用：
+  使用 OpenAI SDK 的 chat.completions.create 方法发起请求。
+  请求参数包括模型 ID、消息列表、温度值、最大 token 数量、工具列表等。
+  如果支持流式输出，则返回一个流对象；否则返回完整结果。
+     */
+    // @ts-ignore key is not typed 9、发起请求
     const stream = await this.sdk.chat.completions
-      // @ts-ignore key is not typed
       .create(
         {
           model: model.id,
@@ -464,6 +499,7 @@ export default class OpenAIProvider extends BaseProvider {
       )
       .finally(cleanup)
 
+    //10 处理流式输出
     await processStream(stream)
   }
 

@@ -1978,6 +1978,7 @@ export function isWebSearchModel(model: Model): boolean {
 }
 
 export function getOpenAIWebSearchParams(assistant: Assistant, model: Model): Record<string, any> {
+  console.log("第四步，检查模型是否支持网络搜索，如果支持，将助手(Assistant)和模型(model)进行匹配，生成用于网络搜索的参数")
   if (isWebSearchModel(model)) {
     if (assistant.enableWebSearch) {
       const webSearchTools = getWebSearchTools(model)

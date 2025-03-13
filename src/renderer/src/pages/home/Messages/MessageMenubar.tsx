@@ -126,7 +126,7 @@ const MessageMenubar: FC<Props> = (props) => {
 
   const onEdit = useCallback(async () => {
     let resendMessage = false
-
+    console.log("进入编辑消息入口")
     const editedText = await TextEditPopup.show({
       text: message.content,
       children: (props) => {

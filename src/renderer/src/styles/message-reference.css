@@ -1,0 +1,44 @@
+.message-reference {
+    margin: 8px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+}
+
+.message-reference.xhs {
+    border-left: 3px solid #fe2c55;
+}
+
+.message-reference.web {
+    border-left: 3px solid #1a73e8;
+}
+
+.reference-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.xhs-info {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9em;
+}
+
+.author-link {
+    color: #fe2c55;
+    text-decoration: none;
+}
+
+.author-link:hover {
+    text-decoration: underline;
+}
+
+.likes {
+    color: var(--text-secondary);
+}

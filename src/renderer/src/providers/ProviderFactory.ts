@@ -7,6 +7,9 @@ import OpenAIProvider from './OpenAIProvider'
 
 export default class ProviderFactory {
   static create(provider: Provider): BaseProvider {
+    console.log('设置的Provider', provider)
+    console.log(provider)
+    console.log('设置的Provider', provider)
     switch (provider.type) {
       case 'anthropic':
         return new AnthropicProvider(provider)

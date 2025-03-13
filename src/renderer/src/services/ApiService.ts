@@ -55,9 +55,11 @@ export async function fetchChatCompletion({
     let isFirstChunk = true
 
     // Search web
+    // 1检查全局配置是否启用了 Web 搜索功能。 2检查当前助手（Assistant）是否支持 Web 搜索。  3确保当前助手有有效的模型（Model）
     if (WebSearchService.isWebSearchEnabled() && assistant.enableWebSearch && assistant.model) {
+      console.log("第三步，主要处理网络搜索得逻辑：匹配网络搜索提供商并返回结果")
+      // 这是一个辅助函数，用于根据助手和模型获取 Web 搜索所需的参数。
       const webSearchParams = getOpenAIWebSearchParams(assistant, assistant.model)
-
       if (isEmpty(webSearchParams)) {
         const lastMessage = findLast(messages, (m) => m.role === 'user')
         const hasKnowledgeBase = !isEmpty(lastMessage?.knowledgeBaseIds)
@@ -68,23 +70,36 @@ export async function fetchChatCompletion({
               key: 'knowledge-base-no-match-info'
             })
           }
+          //  调用回调函数，通知调用方消息的状态已更新为,前端界面可以根据这个状态显示加载动画或提示信息。
           onResponse({ ...message, status: 'searching' })
+
+          // 调用网络搜索服务：1搜索提供者，2传入搜索内容。
           const webSearch = await WebSearchService.search(webSearchProvider, lastMessage.content)
           message.metadata = {
             ...message.metadata,
             webSearch: webSearch
           }
+
+          console.log("第三步，将搜索结果返回前端并缓存结果webSearch")
+          console.log(webSearch)
+          console.log("第三步，将搜索结果返回前端并缓存结果webSearch")
           window.keyv.set(`web-search-${lastMessage?.id}`, webSearch)
         }
       }
     }
 
     const allMCPTools = await window.api.mcp.listTools()
-
+    console.log("第八步，调用AI大模型")
     await AI.completions({
-      messages: filterUsefulMessages(messages),
-      assistant,
-      onFilterMessages: (messages) => (_messages = messages),
+      messages: filterUsefulMessages(messages),  // 过滤出有用的聊天消息，确保只传递相关消息给 AI 模型
+      assistant, // 当前助手的相关配置和信息
+
+      // 一个回调函数，用于接收过滤后的消息列表，并将其赋值给 _messages 变量。这有助于后续处理或调试时使用完整的消息上下文。
+      onFilterMessages: (messages) => (_messages = messages), 
+
+
+      // 一个回调函数，用于处理 AI 模型每次返回的文本片段（chunk）。
+      // 每当模型返回一部分文本时，都会调用这个回调函数来更新消息的内容和元数据。
       onChunk: ({ text, reasoning_content, usage, metrics, search, citations, mcpToolResponse }) => {
         message.content = message.content + text || ''
         message.usage = usage
@@ -115,6 +130,7 @@ export async function fetchChatCompletion({
       },
       mcpTools: allMCPTools
     })
+
 
     message.status = 'success'
 

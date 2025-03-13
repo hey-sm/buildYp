@@ -1,7 +1,7 @@
-import { TavilyClient } from '@agentic/tavily'
-import { WebSearchProvider, WebSearchResponse } from '@renderer/types'
+import { TavilyClient } from '@agentic/tavily'  // 用于与 Tavily API 进行交互。
+import { WebSearchProvider, WebSearchResponse } from '@renderer/types'  // 定义了 Web 1搜索提供者的类型,2返回结果的类型。
 
-import BaseWebSearchProvider from './BaseWebSearchProvider'
+import BaseWebSearchProvider from './BaseWebSearchProvider'  //  基础的 Web 搜索提供者类，提供了通用的搜索逻辑。
 
 export default class TavilyProvider extends BaseWebSearchProvider {
   private tvly: TavilyClient
@@ -14,6 +14,14 @@ export default class TavilyProvider extends BaseWebSearchProvider {
     this.tvly = new TavilyClient({ apiKey: provider.apiKey })
   }
 
+
+  /**
+   * 
+   * @param query: string: 搜索查询字符串。
+    *@param maxResults: number: 最大返回结果数量。
+    *@param excludeDomains: string[]: 需要排除的域名列表。
+   * @returns 
+   */
   public async search(query: string, maxResults: number, excludeDomains: string[]): Promise<WebSearchResponse> {
     try {
       if (!query.trim()) {
@@ -26,6 +34,10 @@ export default class TavilyProvider extends BaseWebSearchProvider {
         exclude_domains: excludeDomains || []
       })
 
+      console.log("第七步：调用Tavily提供商的搜索方法开始")
+      console.log("第七步result :")
+      console.log(result)
+      console.log("第七步result :")
       return {
         query: result.query,
         results: result.results.map((result) => ({

@@ -1,3 +1,4 @@
+/** 是一个 Redux Slice 文件，用于管理应用程序中消息的状态。它定义了如何存储、更新和操作与消息相关的数据 */
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { createSelector } from '@reduxjs/toolkit'
 import db from '@renderer/databases'
@@ -8,6 +9,7 @@ import { getAssistantMessage, getUserMessage, resetAssistantMessage } from '@ren
 import type { AppDispatch, RootState } from '@renderer/store'
 import type { Assistant, FileType, MCPServer, Message, Model, Topic } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
+import { message } from 'antd'
 import { throttle } from 'lodash'
 
 const convertToDBFormat = (messages: Message[]): Message[] => {
@@ -198,6 +200,7 @@ const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
   })
 }
 
+// 发送消息
 // Modified sendMessage thunk
 export const sendMessage =
   (
@@ -213,7 +216,8 @@ export const sendMessage =
       enabledMCPs?: MCPServer[]
     }
   ) =>
-  async (dispatch: AppDispatch, getState: () => RootState) => {
+    async (dispatch: AppDispatch, getState: () => RootState) => {
+      console.log("第二步进入消息仓库:存储\更新信息")
     try {
       dispatch(setLoading(true))
 
@@ -315,6 +319,7 @@ export const sendMessage =
           await syncMessagesWithDB(topic.id, currentTopicMessages)
         }
 
+        console.log("第二步进入消息仓库:异步调用具体的API（fetchChatCompletion")
         queue.add(async () => {
           try {
             const state = getState()
@@ -339,6 +344,11 @@ export const sendMessage =
 
             // 节流
             const throttledDispatch = throttle(handleResponseMessageUpdate, 100, { trailing: true }) // 100ms的节流时间应足够平衡用户体验和性能
+
+
+            console.log(message)
+            console.log(messages)
+            console.log(assistant)
 
             await fetchChatCompletion({
               message: { ...assistantMessage },
@@ -383,7 +393,8 @@ export const sendMessage =
 // 本质都是重发助手消息,兼容了两种消息类型,以及@新模型(属于追加助手消息之后重发)
 export const resendMessage =
   (message: Message, assistant: Assistant, topic: Topic, isMentionModel = false) =>
-  async (dispatch: AppDispatch, getState: () => RootState) => {
+    async (dispatch: AppDispatch, getState: () => RootState) => {
+      console.log("重新发送消息了吗")
     try {
       // 获取状态
       const state = getState()
