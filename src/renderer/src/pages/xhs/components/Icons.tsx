@@ -26,7 +26,8 @@ const ICON_NAMES = [
   'Copywriting',
   'CommentManager',
   'Report',
-  'DandelionQuote'
+  'DandelionQuote',
+  'DyQuotationInfo'
 ] as const
 
 // 修改动态导入路径

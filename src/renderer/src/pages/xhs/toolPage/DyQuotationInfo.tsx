@@ -1,5 +1,5 @@
-import { CloudUploadOutlined, InfoCircleOutlined } from '@ant-design/icons'
-import { Button, Card, Checkbox, Form, Input, Tabs, Tooltip, Typography, Upload } from 'antd'
+import { CloudUploadOutlined } from '@ant-design/icons'
+import { Button, Card, Checkbox, Form, Input, Tabs, Typography, Upload } from 'antd'
 import { FC, useState } from 'react'
 import styled from 'styled-components'
 
@@ -25,60 +25,42 @@ const headerSelectionData: CategoryData[] = [
     category: '基础信息',
     options: [
       { label: '达人昵称', value: 'nickname' },
-      { label: '小红书号', value: 'redid' },
+      { label: '星图ID', value: 'xingtuid' },
       { label: '性别', value: 'gender' },
       { label: '粉丝数', value: 'fans_count' },
       { label: '地区', value: 'location' },
       { label: '所属机构', value: 'mcn' },
-      { label: '商业合作领域', value: 'bussiness' }
+      { label: '达人主页链接', value: 'homepage' }
     ]
   },
   {
     category: '报价信息',
     options: [
-      { label: '图文一口价', value: 'picture_price' },
-      { label: '视频一口价', value: 'video_price' },
-      { label: '其他', value: 'other_price' }
+      { label: '1-20s视频', value: '20s_price' },
+      { label: '1-60s视频', value: '60s_price' },
+      { label: '60秒以上视频', value: 'over_price' }
     ]
   },
   {
     category: '表现数据',
     options: [
-      { label: '互动中位数', value: 'mid_engage_num' },
-      { label: '阅读中位数', value: 'mid_read_num' },
-      { label: '近期笔记互动最高数', value: 'max_engage_num' },
-      { label: '近期笔记互动最低数', value: 'min_engage_num' },
-      {
-        label: (
-          <span>
-            近10篇笔记互动过千数&nbsp;&nbsp;
-            <Tooltip title="此选项会增加数据的获取时间">
-              <InfoCircleOutlined />
-            </Tooltip>
-          </span>
-        ),
-        value: 'hot_num'
-      }
+      { label: '播放中位数', value: 'mid_play_num' },
+      { label: '预期CPM', value: 'CPM' },
+      { label: '完播率', value: 'play_rate' },
+      { label: '互动率', value: 'engage_rate' },
+      { label: '月涨粉率', value: 'fans_inc_rate' }
     ]
   },
   {
     category: '标签信息',
     options: [
-      { label: '内容标签', value: 'content_tag' },
-      { label: '次级标签', value: 'l2_tags' }
-    ]
-  },
-  {
-    category: '粉丝信息',
-    options: [
-      { label: '年龄段占比', value: 'fans_ages' },
-      { label: '性别占比', value: 'fans_gender' },
-      { label: '活跃占比', value: 'fans_active' }
+      { label: '达人类型', value: 'kol_tag' },
+      { label: '行业标签', value: 'industry_tags' }
     ]
   }
 ]
 
-const DandelionQuote: FC = () => {
+const DyQuotationInfo: FC = () => {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [options, setoptions] = useState<Record<string, number>>({})
@@ -106,7 +88,7 @@ const DandelionQuote: FC = () => {
     const kols = form.getFieldValue('kols')?.trim()
 
     if (!fileUrl && !kols) {
-      window.message.error('请上传文件或填写达人主页链接')
+      window.message.error('请上传文件或填写星图ID')
       return
     }
     if (!email) {
@@ -117,7 +99,7 @@ const DandelionQuote: FC = () => {
     try {
       const params = {
         task_data: {
-          action: 'xingtu_kol_detail',
+          action: 'pgy_kol_detail',
           user_info: {
             user_id: 1,
             user_name: '若依',
@@ -133,9 +115,9 @@ const DandelionQuote: FC = () => {
           }
         }
       }
-      setLoading(true)
 
-      const response = await fetch('https://rtoolapi.eshypdata.com/xingtu/add', {
+      setLoading(true)
+      const response = await fetch('https://rtoolapi.eshypdata.com/xhs_pgy/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -153,6 +135,7 @@ const DandelionQuote: FC = () => {
       setoptions({})
       setUploadedFileInfo(null)
     } catch (error) {
+      console.error('Form validation failed:', error)
       window.message.error('提交失败，请稍后重试')
     } finally {
       setLoading(false)
@@ -160,7 +143,7 @@ const DandelionQuote: FC = () => {
   }
 
   return (
-    <ToolPageLayout title="蒲公英报价信息">
+    <ToolPageLayout title="抖音星图达人报价信息">
       <CardsContainer>
         {/* 第一块卡片 */}
         <Card>
@@ -187,22 +170,29 @@ const DandelionQuote: FC = () => {
 
         {/* 第二块卡片 */}
         <Card>
-          <Title level={5}>达人主页链接</Title>
+          <Title level={5}>达人星图ID</Title>
           <Tabs
             items={[
               {
                 key: '1',
-                label: '方法一：输入达人主页链接',
+                label: '方法一：输入达人星图ID',
                 children: (
                   <Form form={form} layout="vertical">
                     <div style={{ marginBottom: 24 }}>
                       <Form.Item
-                        label="请输入达人主页链接"
+                        label="请输入达人星图ID"
                         name="kols"
-                        rules={[{ required: true, message: '请输入达人主页链接' }]}>
+                        rules={[{ required: true, message: '请输入达人星图ID' }]}>
                         <TextArea
                           rows={6}
-                          placeholder="请输入达人主页链接，支持多个人，一行一个链接，格式如下：https://www.xiaohongshu.com/user/profile/5f7b4fa7000000001e32f2f1"
+                          placeholder="请输入达人星图ID, 注意: 是星图ID不是达人主页链接.
+支持多个达人，每行一个星图ID,示例:
+6865533970977652743
+6683772483763437572
+7082127934206509070
+7142114174296915998
+6974769074081366050
+6829318595722346504"
                         />
                       </Form.Item>
                     </div>
@@ -211,7 +201,7 @@ const DandelionQuote: FC = () => {
               },
               {
                 key: '2',
-                label: '方法二：上传表格',
+                label: '方法二：上传带有"星图ID"列的表格',
                 children: (
                   <UploadContainer>
                     <UploadButtonContainer>
@@ -224,7 +214,7 @@ const DandelionQuote: FC = () => {
                           <CloudUploadOutlined />
                         </p>
                         <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
-                        <p className="ant-upload-hint">只能上传xlsx文件，表格内要有&quot;主页链接&quot;列</p>
+                        <p className="ant-upload-hint">只能上传xlsx文件，表格内要有&quot;星图ID&quot;列</p>
                       </Upload.Dragger>
                     </UploadButtonContainer>
                   </UploadContainer>
@@ -293,4 +283,4 @@ const UploadButtonContainer = styled.div`
   margin: 30px 0;
 `
 
-export default DandelionQuote
+export default DyQuotationInfo
