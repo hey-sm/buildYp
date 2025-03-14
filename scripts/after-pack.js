@@ -11,7 +11,7 @@ exports.default = async function (context) {
   if (platform === 'mac') {
     const node_modules_path = path.join(
       context.appOutDir,
-      'Cherry Studio.app',
+      '悦普Studio.app',
       'Contents',
       'Resources',
       'app.asar.unpacked',
