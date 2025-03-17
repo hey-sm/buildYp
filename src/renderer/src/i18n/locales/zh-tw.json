@@ -371,6 +371,7 @@
       "backup.success": "備份成功",
       "chat.completion.paused": "聊天完成已暫停",
       "citations": "參考文獻",
+      "citations-xhs": "參考文獻-小紅書",
       "copied": "已複製",
       "copy.success": "複製成功",
       "error.chunk_overlap_too_large": "分段重疊不能大於分段大小",

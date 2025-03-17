@@ -30,7 +30,8 @@ const MessageContent: React.FC<Props> = ({ message: _message, model }) => {
 
   // Process content to make citation numbers clickable
   const processedContent = useMemo(() => {
-    if (!(message.metadata?.citations || message.metadata?.webSearch)) {
+
+    /*if (!(message.metadata?.citations || message.metadata?.webSearch)) {
       return message.content
     }
 
@@ -39,6 +40,21 @@ const MessageContent: React.FC<Props> = ({ message: _message, model }) => {
     const searchResultsCitations = message?.metadata?.webSearch?.results?.map((result) => result.url) || []
 
     const citations = message?.metadata?.citations || searchResultsCitations
+*/
+
+
+    if (!(message.metadata?.citations || message.metadata?.webSearch || message.metadata?.xhsSearch)) {
+      return message.content
+    }
+
+    let content = message.content
+
+    const webSearchResultsCitations = message?.metadata?.webSearch?.results?.map((result) => result.url) || []
+    const xhsSearchResultsCitations = message?.metadata?.webSearch?.results?.map((result) => result.url) || []
+
+    const citations = message?.metadata?.citations || webSearchResultsCitations || xhsSearchResultsCitations
+    //console.log('哈哈哈哈citations', citations)
+
 
     // Convert [n] format to superscript numbers and make them clickable
     // Use <sup> tag for superscript and make it a link
@@ -81,6 +97,16 @@ const MessageContent: React.FC<Props> = ({ message: _message, model }) => {
       <SearchingContainer>
         <SearchOutlined size={24} />
         <SearchingText>{t('message.searching')}</SearchingText>
+        <BarLoader color="#1677ff" />
+      </SearchingContainer>
+    )
+  }
+
+  if (message.status === 'xhsSearching') {
+    return (
+      <SearchingContainer>message.status
+        <SearchOutlined size={24} />
+        <SearchingText>{t('message.xhsSearching')}</SearchingText>
         <BarLoader color="#1677ff" />
       </SearchingContainer>
     )
@@ -129,13 +155,16 @@ const MessageContent: React.FC<Props> = ({ message: _message, model }) => {
           ))}
         </CitationsContainer>
       )}
-      {message?.metadata?.webSearch && message.status === 'success' && (
+
+
+
+      {message?.metadata?.xhsSearch && message.status === 'success' && (
         <CitationsContainer className="footnotes">
           <CitationsTitle>
-            {t('message.citations')}
+            {t('message.citations-xhs')}
             <InfoCircleOutlined style={{ fontSize: '14px', marginLeft: '4px', opacity: 0.6 }} />
           </CitationsTitle>
-          {message.metadata.webSearch.results.map((result, index) => (
+          {message.metadata.xhsSearch.results.map((result, index) => (
             <HStack key={result.url} style={{ alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13, color: 'var(--color-text-2)' }}>{index + 1}.</span>
               <Favicon hostname={new URL(result.url).hostname} alt={result.title} />
@@ -146,6 +175,31 @@ const MessageContent: React.FC<Props> = ({ message: _message, model }) => {
           ))}
         </CitationsContainer>
       )}
+
+      {message?.metadata?.webSearch && message.status === 'success' && (
+        <CitationsContainer className="footnotes">
+          <CitationsTitle>
+            {t('message.citations')}
+            <InfoCircleOutlined style={{ fontSize: '14px', marginLeft: '4px', opacity: 0.6 }} />
+          </CitationsTitle>
+          {message.metadata.webSearch.results.map((result, index) => (
+            <HStack key={result.url} style={{ alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--color-text-2)' }}>{result.id}.</span>
+              <Favicon hostname={new URL(result.url).hostname} alt={result.title} />
+              <CitationLink href={result.url} target="_blank" rel="noopener noreferrer">
+                {result.title}
+              </CitationLink>
+            </HStack>
+          ))}
+        </CitationsContainer>
+      )}
+
+
+
+
+
+
+
       <MessageAttachments message={message} />
     </Fragment>
   )

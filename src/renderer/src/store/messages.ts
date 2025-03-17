@@ -306,7 +306,6 @@ export const sendMessage =
       }
 
       for (const assistantMessage of assistantMessages) {
-        // console.log('assistantMessage', assistantMessage)
 
         // Set as stream message instead of adding to messages
         dispatch(setStreamMessage({ topicId: topic.id, message: assistantMessage }))
@@ -344,12 +343,6 @@ export const sendMessage =
 
             // 节流
             const throttledDispatch = throttle(handleResponseMessageUpdate, 100, { trailing: true }) // 100ms的节流时间应足够平衡用户体验和性能
-
-
-            console.log(message)
-            console.log(messages)
-            console.log(assistant)
-
             await fetchChatCompletion({
               message: { ...assistantMessage },
               messages: messages

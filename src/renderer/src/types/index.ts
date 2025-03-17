@@ -16,6 +16,7 @@ export type Assistant = {
   settings?: Partial<AssistantSettings>
   messages?: AssistantMessage[]
   enableWebSearch?: boolean
+  enableXhsSearch?: boolean  // 添加小红书搜索的类型定义
 }
 
 export type AssistantMessage = {
@@ -53,7 +54,7 @@ export type Message = {
   translatedContent?: string
   topicId: string
   createdAt: string
-  status: 'sending' | 'pending' | 'searching' | 'success' | 'paused' | 'error'
+  status: 'sending' | 'pending' | 'searching' | 'success' | 'paused' | 'error' | 'xhsSearching'
   modelId?: string
   model?: Model
   files?: FileType[]
@@ -75,6 +76,8 @@ export type Message = {
     citations?: string[]
     // Web search
     webSearch?: WebSearchResponse
+    // xhs search
+    xhsSearch?: XhsSearchResponse
     // MCP Tools
     mcpTools?: MCPToolResponse[]
   }
@@ -304,6 +307,7 @@ export type WebSearchResponse = {
 }
 
 export type WebSearchResult = {
+  id: number
   title: string
   content: string
   url: string
@@ -362,4 +366,16 @@ export interface MCPToolResponse {
   tool: MCPTool
   status: string
   response?: any
+}
+
+export type XhsSearchResponse = {
+  query?: string
+  results: XhsSearchResult[]
+}
+
+export type XhsSearchResult = {
+  id: number
+  title: string      // 笔记标题
+  content: string    // 笔记内容
+  url: string        // 笔记链接
 }

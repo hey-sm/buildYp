@@ -20,11 +20,13 @@ import { isEmpty } from 'lodash'
 import type OpenAI from 'openai'
 
 import type { CompletionsParams } from '.'
+import { combineReducers } from 'redux'
 
 export default abstract class BaseProvider {
   protected provider: Provider
   protected host: string
   protected apiKey: string
+  protected isCounter: number = 0;// 小红书和网络搜索的下边属性
 
   constructor(provider: Provider) {
     this.provider = provider
@@ -94,17 +96,32 @@ export default abstract class BaseProvider {
 
   // 组合消息内容：把网络搜索结果、知识库内容插入到用户问题中
   public async getMessageContent(message: Message) {
-    const webSearchReferences = await this.getWebSearchReferences(message)
-    console.log("第十一步：组合消息内容：把网络搜索结果、知识库内容插入到用户问题中")
+    this.isCounter = 0; // 重置 idCounter
 
+    const webSearchReferences = await this.getWebSearchReferences(message)
+    const xhsSearchReferences = await this.getXhsSearchReferences(message)
+    const combinedReferences = [
+      ...webSearchReferences,
+      ...xhsSearchReferences
+    ]
+    // 转换为喂给大模型的知识引用
+    if (!isEmpty(combinedReferences)) {
+      const referenceContent = `\`\`\`json\n${JSON.stringify(combinedReferences, null, 2)}\n\`\`\``;
+      console.log("第四步-1，组合消息内容：把网络/小红书搜索结果合并", combinedReferences)
+      return REFERENCE_PROMPT.replace('{question}', message.content).replace('{references}', referenceContent);
+    }
+    /**
     if (!isEmpty(webSearchReferences)) {
       const referenceContent = `\`\`\`json\n${JSON.stringify(webSearchReferences, null, 2)}\n\`\`\``
-      console.log("格式化的json")
-      console.log(referenceContent)
-      console.log("格式化的json")
       return REFERENCE_PROMPT.replace('{question}', message.content).replace('{references}', referenceContent)
     }
 
+    if (!isEmpty(xhsSearchReferences)) {
+      const referenceContent = `\`\`\`json\n${JSON.stringify(xhsSearchReferences, null, 2)}\n\`\`\``
+
+      return REFERENCE_PROMPT.replace('{question}', message.content).replace('{references}', referenceContent)
+    }
+*/
     const knowledgeReferences = await getKnowledgeBaseReferences(message)
 
     if (!isEmpty(message.knowledgeBaseIds) && isEmpty(knowledgeReferences)) {
@@ -119,27 +136,46 @@ export default abstract class BaseProvider {
     return message.content
   }
 
-
+  // 网络搜索结果转换为知识引用
   private async getWebSearchReferences(message: Message) {
-    console.log("第九步：进入getWebSearchReferences方法,搜索结果被转换为知识引用开始")
     const webSearch: TavilySearchResponse = window.keyv.get(`web-search-${message.id}`)
-    console.log("JLNwebSearch:")
-    console.log(webSearch)
-    console.log("JLNwebSearch:")
+    console.log("哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈", webSearch)
     if (webSearch) {
       return webSearch.results.map(
         (result, index) =>
           ({
-            id: index + 1,
+            // id: index + 1,
+            id: ++this.isCounter,
+            content: result.content,
+            sourceUrl: result.url,
+            type: 'url'
+          }) as KnowledgeReference
+      )
+
+    }
+
+    return []
+  }
+
+  // 小红书搜索结果转换为知识引用
+  private async getXhsSearchReferences(message: Message) {
+    const xhsSearch: TavilySearchResponse = window.keyv.get(`xhs-search-${message.id}`)
+    if (xhsSearch) {
+      return xhsSearch.results.map(
+        (result, index) =>
+          ({
+            // id: index + 1,
+            id: ++this.isCounter,
             content: result.content,
             sourceUrl: result.url,
             type: 'url'
           }) as KnowledgeReference
       )
     }
-
     return []
   }
+
+
 
   protected getCustomParameters(assistant: Assistant) {
     return (

@@ -34,10 +34,7 @@ export default class TavilyProvider extends BaseWebSearchProvider {
         exclude_domains: excludeDomains || []
       })
 
-      console.log("第七步：调用Tavily提供商的搜索方法开始")
-      console.log("第七步result :")
-      console.log(result)
-      console.log("第七步result :")
+      console.log("第三步-4：根据WebSearchProviderFactory调用Tavily提供商的搜索方法开始")
       return {
         query: result.query,
         results: result.results.map((result) => ({

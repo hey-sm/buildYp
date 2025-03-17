@@ -41,6 +41,7 @@ import React, { CSSProperties, FC, useCallback, useEffect, useMemo, useRef, useS
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import XhsSearchService from '@renderer/services/XhsSearchService'
 
 import NarrowLayout from '../Messages/NarrowLayout'
 import AttachmentButton from './AttachmentButton'
@@ -633,6 +634,16 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     }
   }, [assistant, model, updateAssistant])
 
+
+  // 1. 添加小红书搜索的开关函数
+  const onEnableXhsSearch = () => {
+    console.log("点击小红书搜索", assistant)
+    // 更新状态以反映最新的启用状态
+    XhsSearchService.setXhsSearchEnabled(!assistant.enableXhsSearch);
+    updateAssistant({ ...assistant, enableXhsSearch: !assistant.enableXhsSearch })
+
+  }
+
   const resetHeight = () => {
     if (expended) {
       setExpend(false)
@@ -742,12 +753,21 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
                   {expended ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
                 </ToolbarButton>
               </Tooltip>
-              <Tooltip placement="top" title="小红书" arrow>
-                <ToolbarButton type="text" onClick={() => window.open('https://www.xiaohongshu.com', '_blank')}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+              <Tooltip placement="top" title={t('开启小红书搜索')} arrow>
+                <ToolbarButton
+                  type="text"
+                  onClick={onEnableXhsSearch}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: assistant.enableXhsSearch ? 1 : 0.5
+                  }}>
                     <img
                       src={XiaohongshuLogo}
-                      alt="小红书"
+                      alt={t('开启小红书搜索')}
                       style={{
                         width: '20px',
                         height: '20px',

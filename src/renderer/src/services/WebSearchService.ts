@@ -96,7 +96,7 @@ class WebSearchService {
    * @returns 搜索响应
    */
   public async search(provider: WebSearchProvider, query: string): Promise<WebSearchResponse> {
-    console.log("第五步：使用指定的提供商执行网络搜索")
+    console.log("第三步-2：使用指定的提供商执行网络搜索")
 
      // 1. 获取搜索配置
     const { searchWithTime, maxResults, excludeDomains } = this.getWebSearchState()

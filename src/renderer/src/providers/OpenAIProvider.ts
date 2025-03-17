@@ -79,6 +79,7 @@ export default class OpenAIProvider extends BaseProvider {
     model: Model
   ): Promise<OpenAI.Chat.Completions.ChatCompletionMessageParam> {
     const isVision = isVisionModel(model)
+    // 组合消息内容给大模型
     const content = await this.getMessageContent(message)
 
     if (!message.files) {
@@ -144,7 +145,7 @@ export default class OpenAIProvider extends BaseProvider {
       content: parts
     } as ChatCompletionMessageParam
   }
-
+  1
   private getTemperature(assistant: Assistant, model: Model) {
     if (isReasoningModel(model)) return undefined
 
@@ -243,6 +244,8 @@ export default class OpenAIProvider extends BaseProvider {
 
     let systemMessage = assistant.prompt ? { role: 'system', content: assistant.prompt } : undefined
 
+    console.log("xx生成AI所需要的 model", model)
+
     if (isOpenAIoSeries(model)) {
       systemMessage = {
         role: 'developer',
@@ -250,19 +253,22 @@ export default class OpenAIProvider extends BaseProvider {
       }
     }
 
+
+
     const userMessages: ChatCompletionMessageParam[] = [] 
 
     // 从所有消息中提取最近的 contextCount + 1 条消息。
     const _messages = filterUserRoleStartMessages(filterContextMessages(takeRight(messages, contextCount + 1))) 
+
+    console.log("xx生成AI所需要的 _messages", _messages)
+
     onFilterMessages(_messages) // 过滤掉不需要的消息
     for (const message of _messages) {
       userMessages.push(await this.getMessageParam(message, model)) // 将每条消息转换为适合 OpenAI API 的格式，并存储到 userMessages 中
     }
 
-    console.log("end生成AI所需要的message")
-    console.log(_messages)
-    console.log(userMessages)
-    console.log("end生成AI所需要的message")
+
+    console.log("生成AI所需要的userMessages", userMessages)
 
     // 判断是否支持流式输出
     const isOpenAIo1 = this.isOpenAIo1(model)
@@ -316,17 +322,8 @@ export default class OpenAIProvider extends BaseProvider {
     const lastUserMessage = _messages.findLast((m) => m.role === 'user')
     const { abortController, cleanup } = this.createAbortController(lastUserMessage?.id)
     const { signal } = abortController
-    console.log("signal:")
-    console.log(signal)
-    console.log("signal:")
-
 
     mcpTools = filterMCPTools(mcpTools, lastUserMessage?.enabledMCPs)
-
-    console.log("mcpTools")
-    console.log(mcpTools)
-    console.log("mcpTools")
-
     const tools = mcpTools && mcpTools.length > 0 ? mcpToolsToOpenAITools(mcpTools) : undefined
 
     //7:构建请求消息  将系统消息和用户消息合并成最终的请求消息列表。
@@ -334,11 +331,7 @@ export default class OpenAIProvider extends BaseProvider {
       Boolean
     ) as ChatCompletionMessageParam[]
 
-    console.log("最终的请求消息message")
-    console.log(reqMessages)
-    console.log("最终的请求消息的message")
-
-
+    console.log("最终的请求消息", reqMessages)
     const toolResponses: MCPToolResponse[] = []
 
     // 8. 定义流式处理逻辑
@@ -381,6 +374,7 @@ export default class OpenAIProvider extends BaseProvider {
         const time_thinking_millsec = time_first_content_millsec ? time_first_content_millsec - start_time_millsec : 0
 
         // Extract citations from the raw response if available
+
         const citations = (chunk as OpenAI.Chat.Completions.ChatCompletionChunk & { citations?: string[] })?.citations
 
         const finishReason = chunk.choices[0]?.finish_reason

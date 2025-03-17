@@ -19,6 +19,7 @@ import { EVENT_NAMES, EventEmitter } from './EventService'
 import { filterMessages, filterUsefulMessages } from './MessagesService'
 import { estimateMessagesUsage } from './TokenService'
 import WebSearchService from './WebSearchService'
+import XhsSearchService from './XhsSearchService'
 
 export async function fetchChatCompletion({
   message,
@@ -53,15 +54,49 @@ export async function fetchChatCompletion({
   try {
     let _messages: Message[] = []
     let isFirstChunk = true
+    let serarchIndex = 0
 
+    const lastMessage = findLast(messages, (m) => m.role === 'user')
+    // 判断是否启用了小红书搜索
+    if (assistant.enableXhsSearch && assistant.model) {
+      const hasKnowledgeBase = !isEmpty(lastMessage?.knowledgeBaseIds)
+      if (lastMessage) {
+        if (hasKnowledgeBase) {
+          window.message.info({
+            content: i18n.t('message.ignore.knowledge.base'),
+            key: 'knowledge-base-no-match-info'
+          })
+        }
+
+        //  调用回调函数，通知调用方消息的状态已更新为,前端界面可以根据这个状态显示加载动画或提示信息。
+        onResponse({ ...message, status: 'xhsSearching' })
+        // 调用小红书搜索接口：传入搜索内容。
+        const xhsSearch = await XhsSearchService.search(lastMessage.content)
+
+        // 遍历并修改 webSearch 的 id 值
+        const updatedXhsSearch = xhsSearch.results.map((result) => ({
+          id: ++serarchIndex,
+          title: result.title,
+          content: result.content,
+          url: result.url,
+        }));
+
+        message.metadata = {
+          ...message.metadata,
+          xhsSearch: { ...xhsSearch, results: updatedXhsSearch }
+        };
+        window.keyv.set(`xhs-search-${lastMessage?.id}`, xhsSearch)
+      }
+    } else {
+      // 是否要保留历史搜索缓存数据-开关关起的时候移除
+      //window.keyv.remove(`xhs-search-${lastMessage?.id}`)
+    }
     // Search web
     // 1检查全局配置是否启用了 Web 搜索功能。 2检查当前助手（Assistant）是否支持 Web 搜索。  3确保当前助手有有效的模型（Model）
     if (WebSearchService.isWebSearchEnabled() && assistant.enableWebSearch && assistant.model) {
-      console.log("第三步，主要处理网络搜索得逻辑：匹配网络搜索提供商并返回结果")
       // 这是一个辅助函数，用于根据助手和模型获取 Web 搜索所需的参数。
       const webSearchParams = getOpenAIWebSearchParams(assistant, assistant.model)
       if (isEmpty(webSearchParams)) {
-        const lastMessage = findLast(messages, (m) => m.role === 'user')
         const hasKnowledgeBase = !isEmpty(lastMessage?.knowledgeBaseIds)
         if (lastMessage) {
           if (hasKnowledgeBase) {
@@ -75,21 +110,28 @@ export async function fetchChatCompletion({
 
           // 调用网络搜索服务：1搜索提供者，2传入搜索内容。
           const webSearch = await WebSearchService.search(webSearchProvider, lastMessage.content)
+
+          // 遍历并修改 webSearch 的 id 值
+          const updatedWebSearch = webSearch.results.map((result) => ({
+            id: ++serarchIndex,
+            title: result.title,
+            content: result.content,
+            url: result.url,
+          }));
+
           message.metadata = {
             ...message.metadata,
-            webSearch: webSearch
-          }
-
-          console.log("第三步，将搜索结果返回前端并缓存结果webSearch")
-          console.log(webSearch)
-          console.log("第三步，将搜索结果返回前端并缓存结果webSearch")
+            webSearch: { ...webSearch, results: updatedWebSearch }
+          };
+          console.log("第三步，网络搜索结果", webSearch)
           window.keyv.set(`web-search-${lastMessage?.id}`, webSearch)
         }
-      }
+      } 
+    } else {
+      // 是否要保留历史搜索缓存数据-开关关起的时候移除
+      //window.keyv.remove(`web-search-${lastMessage?.id}`)
     }
-
     const allMCPTools = await window.api.mcp.listTools()
-    console.log("第八步，调用AI大模型")
     await AI.completions({
       messages: filterUsefulMessages(messages),  // 过滤出有用的聊天消息，确保只传递相关消息给 AI 模型
       assistant, // 当前助手的相关配置和信息
@@ -97,10 +139,10 @@ export async function fetchChatCompletion({
       // 一个回调函数，用于接收过滤后的消息列表，并将其赋值给 _messages 变量。这有助于后续处理或调试时使用完整的消息上下文。
       onFilterMessages: (messages) => (_messages = messages), 
 
-
       // 一个回调函数，用于处理 AI 模型每次返回的文本片段（chunk）。
       // 每当模型返回一部分文本时，都会调用这个回调函数来更新消息的内容和元数据。
       onChunk: ({ text, reasoning_content, usage, metrics, search, citations, mcpToolResponse }) => {
+
         message.content = message.content + text || ''
         message.usage = usage
         message.metrics = metrics
@@ -127,10 +169,11 @@ export async function fetchChatCompletion({
         }
 
         onResponse({ ...message, status: 'pending' })
+
       },
       mcpTools: allMCPTools
     })
-
+    console.log("第八步，调用AI大模型开始", message, messages)
 
     message.status = 'success'
 

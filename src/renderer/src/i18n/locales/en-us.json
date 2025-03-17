@@ -371,6 +371,7 @@
       "backup.success": "Backup successful",
       "chat.completion.paused": "Chat completion paused",
       "citations": "References",
+      "citations-xhs": "References-Xiaohongshu",
       "copied": "Copied!",
       "copy.success": "Copied!",
       "error.chunk_overlap_too_large": "Chunk overlap cannot be greater than chunk size",

@@ -59,11 +59,10 @@ export function filterUsefulMessages(messages: Message[]): Message[] {
       }
     }
   })
-
   while (_messages.length > 0 && _messages[_messages.length - 1].role === 'assistant') {
     _messages.pop()
   }
-
+  console.log('过滤后的消息', messages)
   return _messages
 }
 

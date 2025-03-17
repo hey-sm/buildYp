@@ -371,6 +371,7 @@
       "backup.success": "バックアップに成功しました",
       "chat.completion.paused": "チャットの完了が一時停止されました",
       "citations": "参考文献",
+      "citations-xhs": "参考文献-小红书",
       "copied": "コピーしました！",
       "copy.success": "コピーしました！",
       "error.chunk_overlap_too_large": "チャンクの重なりは、チャンクサイズを超えることはできません",
