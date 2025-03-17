@@ -74,7 +74,11 @@ jobs:
       - name: Build Mac
         if: matrix.os == 'macos-latest'
         run: |
+          # 先构建 npm 依赖
           yarn build:npm mac
+          # 确保目录存在
+          mkdir -p node_modules/@libsql
+          # 构建应用
           yarn build:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
