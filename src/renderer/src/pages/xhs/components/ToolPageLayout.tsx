@@ -44,8 +44,9 @@ const Container = styled.div`
 const ContentContainer = styled.div`
   display: flex;
   flex: 1;
-  padding: 20px;
+  padding: 10px;
   overflow-y: auto;
+  background-color: #f5f5f5;
 `
 
 const ButtonGroup = styled.div`

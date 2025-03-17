@@ -25,11 +25,13 @@ const ICON_NAMES = [
   'StarMap',
   'Copywriting',
   'CommentManager',
-  'Report'
+  'Report',
+  'DandelionQuote',
+  'DyQuotationInfo'
 ] as const
 
-// 动态导入指定的图标
-const icons = import.meta.glob('../../../assets/images/xhs/*.svg', {
+// 修改动态导入路径
+const icons = import.meta.glob('/src/assets/images/xhs/*.svg', {
   eager: true,
   import: 'default'
 }) as Record<string, string>
@@ -41,7 +43,7 @@ export const Icons = {
       name,
       () => (
         <IconWrapper>
-          <img src={icons[`../../../assets/images/xhs/${name}.svg`]} alt={name.toLowerCase()} />
+          <img src={icons[`/src/assets/images/xhs/${name}.svg`]} alt={name.toLowerCase()} />
         </IconWrapper>
       )
     ])

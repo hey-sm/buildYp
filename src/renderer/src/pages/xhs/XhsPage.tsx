@@ -24,6 +24,18 @@ const XhsPage: FC = () => {
       path: '/xhs/comment-hero'
     },
     {
+      id: 'dandelion-quote',
+      title: '蒲公英报价信息',
+      icon: <Icons.DandelionQuote />,
+      path: '/xhs/dandelion-quote'
+    },
+    {
+      id: 'dy-quotation-info',
+      title: '抖音达人报价',
+      icon: <Icons.DyQuotationInfo />,
+      path: '/xhs/dy-quotation-info'
+    },
+    {
       id: 'demand-analysis',
       title: '客户需求分析师',
       icon: <Icons.DemandAnalysis />,
@@ -71,7 +83,7 @@ const XhsPage: FC = () => {
       icon: <Icons.Report />,
       path: '/xhs/report'
     }
-  ] as const
+  ]
 
   const filteredTools = search ? tools.filter((tool) => tool.title.toLowerCase().includes(search.toLowerCase())) : tools
 
