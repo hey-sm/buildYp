@@ -2,7 +2,6 @@ import {
   CloudOutlined,
   CodeOutlined,
   GlobalOutlined,
-  InfoCircleOutlined,
   LayoutOutlined,
   MacCommandOutlined,
   RocketOutlined,
@@ -98,12 +97,12 @@ const SettingsPage: FC = () => {
               {t('settings.data.title')}
             </MenuItem>
           </MenuItemLink>
-          <MenuItemLink to="/settings/about">
+          {/* <MenuItemLink to="/settings/about">
             <MenuItem className={isRoute('/settings/about')}>
               <InfoCircleOutlined />
               {t('settings.about')}
             </MenuItem>
-          </MenuItemLink>
+          </MenuItemLink> */}
         </SettingMenus>
         <SettingContent>
           <Routes>

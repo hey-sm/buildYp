@@ -1,5 +1,5 @@
 appId: com.kangfenmao.CherryStudio
-productName: Cherry Studio
+productName: 悦普Studio
 directories:
   buildResources: build
 files:
@@ -31,7 +31,7 @@ asarUnpack:
   - resources/**
   - '**/*.{node,dll,metal,exp,lib}'
 win:
-  executableName: Cherry Studio
+  executableName: 悦普Studio
   artifactName: ${productName}-${version}-portable.${ext}
   target:
     - target: nsis

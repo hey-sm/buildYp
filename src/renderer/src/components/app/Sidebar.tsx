@@ -24,6 +24,7 @@ import styled from 'styled-components'
 
 import DragableList from '../DragableList'
 import MinAppIcon from '../Icons/MinAppIcon'
+import XhsIcon from '../Icons/XhsIcon'
 import MinApp from '../MinApp'
 import UserPopup from '../Popups/UserPopup'
 
@@ -135,7 +136,8 @@ const MainMenus: FC = () => {
     translate: <TranslationOutlined />,
     minapp: <i className="iconfont icon-appstore" />,
     knowledge: <FileSearchOutlined />,
-    files: <FolderOutlined />
+    files: <FolderOutlined />,
+    xhs: <XhsIcon />
   }
 
   const pathMap = {
@@ -145,7 +147,8 @@ const MainMenus: FC = () => {
     translate: '/translate',
     minapp: '/apps',
     knowledge: '/knowledge',
-    files: '/files'
+    files: '/files',
+    xhs: '/xhs'
   }
 
   return sidebarIcons.visible.map((icon) => {
