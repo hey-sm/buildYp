@@ -30,6 +30,12 @@ const XhsPage: FC = () => {
       path: '/xhs/dandelion-quote'
     },
     {
+      id: 'dy-quotation-info',
+      title: '抖音达人报价',
+      icon: <Icons.DyQuotationInfo />,
+      path: '/xhs/dy-quotation-info'
+    },
+    {
       id: 'demand-analysis',
       title: '客户需求分析师',
       icon: <Icons.DemandAnalysis />,
