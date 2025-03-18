@@ -12,7 +12,27 @@ export interface AssistantsState {
 
 const initialState: AssistantsState = {
   defaultAssistant: getDefaultAssistant(),
-  assistants: [getDefaultAssistant()]
+  assistants: [
+    getDefaultAssistant(),
+    {
+      id: '001',
+      name: '小红书营销助手',
+      emoji: '👨‍💼',
+      prompt: '你现在是一名小红书营销助手,',
+      description: '扮演小红书营销助手角色，为用户提供实用的解答。',
+      topics: [getDefaultTopic('001')],
+      messages: [],
+      type: 'assistant',
+      model: { id: 'qwen-max', name: 'qwen-max', provider: 'dashscope', group: 'qwen-max', owned_by: 'system' },
+      settings: {
+        temperature: 0.7,
+        contextCount: 10,
+        maxTokens: 4000,
+        streamOutput: true
+      },
+      enableWebSearch: false
+    }
+  ]
 }
 
 const assistantsSlice = createSlice({
